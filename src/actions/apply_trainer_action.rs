@@ -138,6 +138,7 @@ pub fn forecast_trainer_action(
         CardId::A2a073CelesticTownElder | CardId::A2a088CelesticTownElder => {
             celestic_town_elder_effect(acting_player, state)
         }
+        CardId::A2a074Barry | CardId::A2a089Barry => doutcome(barry_effect),
         CardId::A2a075Adaman | CardId::A2a090Adaman => doutcome(adaman_effect),
         CardId::B2149Diantha | CardId::B2190Diantha => doutcome(diantha_effect),
         CardId::B2152Piers | CardId::B2193Piers => doutcome(piers_effect),
@@ -461,6 +462,21 @@ fn mars_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
 fn giovanni_effect(_: &mut StdRng, state: &mut State, _: &Action) {
     // During this turn, attacks used by your Pokémon do +10 damage to your opponent's Active Pokémon.
     state.add_turn_effect(TurnEffect::IncreasedDamage { amount: 10 }, 0);
+}
+
+fn barry_effect(_: &mut StdRng, state: &mut State, _: &Action) {
+    // During this turn, attacks used by your Snorlax, Heracross, and Staraptor cost 2 less [C] Energy.
+    state.add_turn_effect(
+        TurnEffect::ReducedAttackCostForSpecificPokemon {
+            amount: 2,
+            pokemon_names: vec![
+                "Snorlax".to_string(),
+                "Heracross".to_string(),
+                "Staraptor".to_string(),
+            ],
+        },
+        0,
+    );
 }
 
 fn adaman_effect(_: &mut StdRng, state: &mut State, action: &Action) {

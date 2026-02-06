@@ -780,6 +780,53 @@ pub(crate) fn get_attack_cost(
         }
     }
 
+    // Check for ReducedAttackCostForSpecificPokemon turn effect (e.g., Barry card)
+    if let Some(active_pokemon) = &state.in_play_pokemon[attacking_player][0] {
+        let pokemon_name = active_pokemon.get_name();
+        
+        for effect in state.get_current_turn_effects() {
+            if let TurnEffect::ReducedAttackCostForSpecificPokemon {
+                amount,
+                pokemon_names,
+            } = effect
+            {
+                if pokemon_names.iter().any(|name| name.as_str() == pokemon_name) {
+                    // Remove up to 'amount' colorless energies from the cost
+                    // First remove explicit Colorless energies, then any other energy type
+                    let mut removed = 0;
+                    let reduction = amount as usize;
+                    
+                    // First pass: remove Colorless energies
+                    modified_cost.retain(|energy| {
+                        if removed < reduction && *energy == EnergyType::Colorless {
+                            removed += 1;
+                            false
+                        } else {
+                            true
+                        }
+                    });
+                    
+                    // Second pass: if we still need to remove more, remove any energy type
+                    if removed < reduction {
+                        let temp_cost = modified_cost.clone();
+                        modified_cost.clear();
+                        let mut skip_count = reduction - removed;
+                        
+                        for energy in temp_cost {
+                            if skip_count > 0 {
+                                skip_count -= 1;
+                            } else {
+                                modified_cost.push(energy);
+                            }
+                        }
+                    }
+                    
+                    break; // Only apply the first matching effect
+                }
+            }
+        }
+    }
+
     modified_cost
 }
 

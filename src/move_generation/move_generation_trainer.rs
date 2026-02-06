@@ -163,6 +163,7 @@ pub fn trainer_move_generation_implementation(
             can_play_celestic_town_elder(state, trainer_card)
         }
         CardId::A2a075Adaman | CardId::A2a090Adaman => can_play_trainer(state, trainer_card),
+        CardId::A2a074Barry | CardId::A2a089Barry => can_play_trainer(state, trainer_card),
         CardId::B2149Diantha | CardId::B2190Diantha => can_play_diantha(state, trainer_card),
         CardId::B2152Piers | CardId::B2193Piers => can_play_piers(state, trainer_card),
         CardId::B1a066ClemontsBackpack => can_play_trainer(state, trainer_card),

@@ -42,6 +42,10 @@ pub enum TurnEffect {
         amount: u32,
         pokemon_names: Vec<String>,
     },
+    ReducedAttackCostForSpecificPokemon {
+        amount: u8,
+        pokemon_names: Vec<String>,
+    },
     GuaranteedHeadsOnNextFlip,
 }
 
