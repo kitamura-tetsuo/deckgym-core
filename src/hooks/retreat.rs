@@ -61,6 +61,19 @@ pub(crate) fn get_retreat_cost(state: &State, card: &PlayedCard) -> Vec<EnergyTy
             normal_cost.pop(); // Remove one colorless energy from retreat cost
         }
 
+        // Peculiar Plaza Stadium: Psychic Pokémon's Retreat Cost is 2 less
+        if pokemon_card.energy_type == EnergyType::Psychic {
+            if let Some(stadium) = state.get_stadium() {
+                if let Some(stadium_id) = CardId::from_card_id(&stadium.get_id()) {
+                    if stadium_id == CardId::B2155PeculiarPlaza {
+                        // Reduce retreat cost by 2
+                        normal_cost.pop();
+                        normal_cost.pop();
+                    }
+                }
+            }
+        }
+
         // Ariados Trap Territory: Your opponent's Active Pokémon's Retreat Cost is 1 more.
         // This check needs to look at if the OPPONENT has Ariados in play
         let opponent = (state.current_player + 1) % 2;
@@ -73,6 +86,7 @@ pub(crate) fn get_retreat_cost(state: &State, card: &PlayedCard) -> Vec<EnergyTy
                 }
             }
         }
+
 
         normal_cost
     } else {

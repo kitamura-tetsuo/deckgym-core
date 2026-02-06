@@ -145,9 +145,64 @@ pub fn forecast_trainer_action(
         }
         CardId::B1a069Serena | CardId::B1a082Serena => serena_effect(acting_player, state),
         CardId::B2145LuckyIcePop => lucky_ice_pop_outcomes(),
+        // Stadium cards
+        CardId::B2153TrainingArea | CardId::B2154StartingPlains | CardId::B2155PeculiarPlaza => {
+            doutcome(stadium_effect)
+        }
         _ => panic!("Unsupported Trainer Card"),
     }
 }
+
+fn stadium_effect(_: &mut StdRng, state: &mut State, action: &Action) {
+    // Stadium cards remain in play and affect both players
+    // When a new Stadium is played, the old one is discarded
+    if let SimpleAction::Play { trainer_card } = &action.action {
+        use crate::card_ids::CardId;
+        
+        // Remove HP bonus from old Stadium if it was Starting Plains
+        if let Some(old_stadium) = state.get_stadium() {
+            if let Some(old_stadium_id) = CardId::from_card_id(&old_stadium.get_id()) {
+                if old_stadium_id == CardId::B2154StartingPlains {
+                    // Remove +20 HP from all Basic Pokemon
+                    for player in 0..2 {
+                        for pokemon in state.in_play_pokemon[player].iter_mut().flatten() {
+                            if let Card::Pokemon(pokemon_card) = &pokemon.card {
+                                if pokemon_card.stage == 0 {
+                                    pokemon.total_hp = pokemon.total_hp.saturating_sub(20);
+                                    pokemon.remaining_hp = pokemon.remaining_hp.min(pokemon.total_hp);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        let card = Card::Trainer(trainer_card.clone());
+        let card_id = CardId::from_card_id(&trainer_card.id);
+        state.set_stadium(card, action.actor);
+        debug!("Stadium: {} is now in play", trainer_card.name);
+        
+        // Apply HP bonus for Starting Plains
+        if let Some(stadium_id) = card_id {
+            if stadium_id == CardId::B2154StartingPlains {
+                // Add +20 HP to all Basic Pokemon
+                for player in 0..2 {
+                    for pokemon in state.in_play_pokemon[player].iter_mut().flatten() {
+                        if let Card::Pokemon(pokemon_card) = &pokemon.card {
+                            if pokemon_card.stage == 0 {
+                                pokemon.total_hp += 20;
+                                pokemon.remaining_hp += 20;
+                                debug!("Starting Plains: Added +20 HP to {}", pokemon_card.name);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 fn erika_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
     inner_healing_effect(rng, state, action, 50, Some(EnergyType::Grass));

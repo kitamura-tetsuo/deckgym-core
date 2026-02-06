@@ -151,8 +151,27 @@ pub(crate) fn on_evolve(actor: usize, state: &mut State, to_card: &Card) {
 }
 
 /// Called when a basic Pokémon is played to the bench from hand
-pub(crate) fn on_play_to_bench(_actor: usize, _state: &mut State, card: &Card, in_play_idx: usize) {
-    // Only trigger for bench positions (index > 0)
+pub(crate) fn on_play_to_bench(actor: usize, state: &mut State, card: &Card, in_play_idx: usize) {
+    // Apply Starting Plains HP bonus if Stadium is active and Pokemon is Basic
+    if let Card::Pokemon(pokemon_card) = card {
+        if pokemon_card.stage == 0 {
+            if let Some(stadium) = state.get_stadium() {
+                use crate::card_ids::CardId;
+                if let Some(stadium_id) = CardId::from_card_id(&stadium.get_id()) {
+                    if stadium_id == CardId::B2154StartingPlains {
+                        // Add +20 HP to the newly played Basic Pokemon
+                        if let Some(pokemon) = state.in_play_pokemon[actor][in_play_idx].as_mut() {
+                            pokemon.total_hp += 20;
+                            pokemon.remaining_hp += 20;
+                            debug!("Starting Plains: Added +20 HP to {} entering play", pokemon_card.name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Only trigger abilities for bench positions (index > 0)
     if in_play_idx == 0 {
         return;
     }
@@ -169,6 +188,7 @@ pub(crate) fn on_play_to_bench(_actor: usize, _state: &mut State, card: &Card, i
         }
     }
 }
+
 
 pub(crate) fn on_end_turn(player_ending_turn: usize, state: &mut State) {
     // Check if active Pokémon has an end-of-turn ability
@@ -623,8 +643,15 @@ pub(crate) fn modify_damage(
         0
     };
 
+    // Stadium damage modifier (Training Area: +10 damage for Stage 1 Pokemon)
+    let stadium_damage_modifier = if is_active_to_active {
+        get_stadium_damage_modifier(state, attacking_pokemon)
+    } else {
+        0
+    };
+
     debug!(
-        "Attack: {:?}, Weakness: {}, IncreasedDamage: {}, IncreasedAttackSpecific: {}, ReducedDamage: {}, TurnEffectReduction: {}, HeavyHelmet: {}, MetalCoreBarrier: {}, IntimidatingFang: {}, AbilityReduction: {}, TypeBoost: {}",
+        "Attack: {:?}, Weakness: {}, IncreasedDamage: {}, IncreasedAttackSpecific: {}, ReducedDamage: {}, TurnEffectReduction: {}, HeavyHelmet: {}, MetalCoreBarrier: {}, IntimidatingFang: {}, AbilityReduction: {}, TypeBoost: {}, Stadium: {}",
         base_damage,
         weakness_modifier,
         increased_turn_effect_modifiers,
@@ -635,13 +662,15 @@ pub(crate) fn modify_damage(
         metal_core_barrier_reduction,
         intimidating_fang_reduction,
         ability_damage_reduction,
-        type_boost_bonus
+        type_boost_bonus,
+        stadium_damage_modifier
     );
     (base_damage
         + weakness_modifier
         + increased_turn_effect_modifiers
         + increased_attack_specific_modifiers
-        + type_boost_bonus)
+        + type_boost_bonus
+        + stadium_damage_modifier)
         .saturating_sub(
             reduced_card_effect_modifiers
                 + reduced_turn_effect_modifiers
@@ -693,6 +722,30 @@ fn calculate_type_boost_bonus(
 
     bonus
 }
+
+/// Calculate Stadium damage modifier (Training Area: +10 damage for Stage 1 Pokemon)
+fn get_stadium_damage_modifier(state: &State, attacking_pokemon: &PlayedCard) -> u32 {
+    use crate::card_ids::CardId;
+
+    if let Some(stadium) = state.get_stadium() {
+        if let Some(stadium_id) = CardId::from_card_id(&stadium.get_id()) {
+            match stadium_id {
+                CardId::B2153TrainingArea => {
+                    // Training Area: Attacks used by Stage 1 Pokémon do +10 damage
+                    if let Card::Pokemon(pokemon_card) = &attacking_pokemon.card {
+                        if pokemon_card.stage == 1 {
+                            debug!("Training Area: Adding +10 damage for Stage 1 Pokemon");
+                            return 10;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    0
+}
+
 
 // Get the attack cost, considering opponent's abilities that modify attack costs (like Goomy's Sticky Membrane)
 pub(crate) fn get_attack_cost(

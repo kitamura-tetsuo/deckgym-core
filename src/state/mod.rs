@@ -42,6 +42,9 @@ pub struct State {
     // 0 index is the active pokemon, 1..4 are the bench
     pub in_play_pokemon: [[Option<PlayedCard>; 4]; 2],
 
+    // Stadium card in play (shared between both players)
+    pub stadium_in_play: Option<Card>,
+
     // Turn Flags (remember to reset these in reset_turn_states)
     pub(crate) has_played_support: bool,
     pub(crate) has_retreated: bool,
@@ -65,6 +68,7 @@ impl State {
             discard_piles: [Vec::new(), Vec::new()],
             discard_energies: [Vec::new(), Vec::new()],
             in_play_pokemon: [[None, None, None, None], [None, None, None, None]],
+            stadium_in_play: None,
             has_played_support: false,
             has_retreated: false,
 
@@ -436,6 +440,20 @@ impl State {
     /// Get the flag indicating a Pokemon was KO'd by opponent's attack last turn.
     pub fn get_knocked_out_by_opponent_attack_last_turn(&self) -> bool {
         self.knocked_out_by_opponent_attack_last_turn
+    }
+
+    /// Set the Stadium card in play, discarding the old one if present
+    pub(crate) fn set_stadium(&mut self, stadium: Card, player: usize) {
+        // If there's an old Stadium, discard it to the player who played the new one
+        if let Some(old_stadium) = self.stadium_in_play.take() {
+            self.discard_piles[player].push(old_stadium);
+        }
+        self.stadium_in_play = Some(stadium);
+    }
+
+    /// Get the Stadium card currently in play
+    pub(crate) fn get_stadium(&self) -> Option<&Card> {
+        self.stadium_in_play.as_ref()
     }
 }
 

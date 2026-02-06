@@ -90,7 +90,7 @@
       "args": [
         "simulate",
         "/workspaces/PokemonTCGP/simulator/decks/cd079be3.txt",
-        "/workspaces/PokemonTCGP/simulator/decks/38e99063.txt",
+        "/workspaces/PokemonTCGP/simulator/decks/98e2b4b1.txt",
         "--num",
         "100",
         "--players",
