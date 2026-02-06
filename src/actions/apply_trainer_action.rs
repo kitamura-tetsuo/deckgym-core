@@ -149,6 +149,7 @@ pub fn forecast_trainer_action(
         CardId::B1a069Serena | CardId::B1a082Serena => serena_effect(acting_player, state),
         CardId::B2145LuckyIcePop => lucky_ice_pop_outcomes(),
         CardId::A4156Will | CardId::A4196Will => doutcome(will_effect),
+        CardId::A3151Guzma | CardId::A3193Guzma | CardId::A3208Guzma => doutcome(guzma_effect),
         // Stadium cards
         CardId::B2153TrainingArea | CardId::B2154StartingPlains | CardId::B2155PeculiarPlaza => {
             doutcome(stadium_effect)
@@ -611,6 +612,19 @@ fn will_effect(_: &mut StdRng, state: &mut State, _: &Action) {
     // The next time you flip any number of coins for the effect of an attack, Ability, or Trainer card
     // after using this card on this turn, the first coin flip will definitely be heads.
     state.add_turn_effect(TurnEffect::GuaranteedHeadsOnNextFlip, 0);
+}
+
+fn guzma_effect(_: &mut StdRng, state: &mut State, action: &Action) {
+    // Discard all Pokémon Tool cards attached to each of your opponent's Pokémon.
+    let opponent = (action.actor + 1) % 2;
+    debug!("Guzma: Discarding all tool cards from opponent's Pokémon");
+    
+    for pokemon in state.in_play_pokemon[opponent].iter_mut().flatten() {
+        if let Some(tool) = pokemon.attached_tool.take() {
+            debug!("Guzma: Discarding {} from {}", tool.get_name(), pokemon.get_name());
+            state.discard_piles[opponent].push(tool);
+        }
+    }
 }
 
 
