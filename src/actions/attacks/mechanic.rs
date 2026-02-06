@@ -182,4 +182,8 @@ pub enum Mechanic {
     ShuffleOpponentActiveIntoDeck,
     BlockBasicAttack,
     SwitchSelfWithBench,
+    DoublePunchingFamily {
+        first_damage: u32,
+        second_damage: u32,
+    },
 }

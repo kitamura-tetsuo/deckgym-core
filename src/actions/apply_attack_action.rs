@@ -529,6 +529,10 @@ fn forecast_effect_attack_by_mechanic(
         Mechanic::CoinFlipToBlockAttackNextTurn => {
             coin_flip_to_block_attack_next_turn(attack.fixed_damage)
         }
+        Mechanic::DoublePunchingFamily {
+            first_damage,
+            second_damage,
+        } => double_punching_family_attack(*first_damage, *second_damage),
     }
 }
 
@@ -559,6 +563,28 @@ fn recoil_if_ko_attack(damage: u32, self_damage: u32) -> (Probabilities, Mutatio
         }
     }))
 }
+
+fn double_punching_family_attack(
+    first_damage: u32,
+    second_damage: u32,
+) -> (Probabilities, Mutations) {
+    doutcome_from_mutation(Box::new(move |_, state, action| {
+        let opponent = (action.actor + 1) % 2;
+        let attacking_ref = (action.actor, 0);
+
+        // First attack: deal first_damage to opponent's active
+        handle_damage(state, attacking_ref, &[(first_damage, opponent, 0)], true, None);
+
+        // Second attack: deal second_damage to opponent's active
+        // (which may be a new Pokémon if the first attack caused a KO and promotion)
+        // Only deal damage if there's an active Pokémon (not KO'd without replacement)
+        if state.in_play_pokemon[opponent][0].is_some() {
+            handle_damage(state, attacking_ref, &[(second_damage, opponent, 0)], true, None);
+        }
+    }))
+}
+
+
 
 fn coinflip_no_effect(fixed_damage: u32) -> (Probabilities, Mutations) {
     probabilistic_damage_attack(vec![0.5, 0.5], vec![fixed_damage, 0])
