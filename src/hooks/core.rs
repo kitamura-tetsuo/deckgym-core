@@ -192,56 +192,65 @@ pub(crate) fn on_play_to_bench(actor: usize, state: &mut State, card: &Card, in_
 
 pub(crate) fn on_end_turn(player_ending_turn: usize, state: &mut State) {
     // Check if active Pokémon has an end-of-turn ability
-    let active = state.get_active(player_ending_turn);
-    if let Some(ability_id) = AbilityId::from_pokemon_id(&active.card.get_id()[..]) {
-        if ability_id == AbilityId::A4a010EnteiExLegendaryPulse
-            || ability_id == AbilityId::A4a020SuicuneExLegendaryPulse
-            || ability_id == AbilityId::A4a025RaikouExLegendaryPulse
-        {
-            // At the end of your turn, if this Pokémon is in the Active Spot, draw a card.
-            debug!("Legendary Pulse: Drawing a card");
-            state.move_generation_stack.push((
-                player_ending_turn,
-                vec![SimpleAction::DrawCard { amount: 1 }],
-            ));
-        }
-        if ability_id == AbilityId::A3b057SnorlaxExFullMouthManner {
-            // At the end of your turn, if this Pokémon is in the Active Spot, heal 20 damage from it.
-            debug!("Full-Mouth Manner: Healing 20 damage from active");
-            let active = state.get_active_mut(player_ending_turn);
-            active.heal(20);
+    if let Some(active) = state.maybe_get_active(player_ending_turn) {
+        if let Some(ability_id) = AbilityId::from_pokemon_id(&active.card.get_id()[..]) {
+            if ability_id == AbilityId::A4a010EnteiExLegendaryPulse
+                || ability_id == AbilityId::A4a020SuicuneExLegendaryPulse
+                || ability_id == AbilityId::A4a025RaikouExLegendaryPulse
+            {
+                // At the end of your turn, if this Pokémon is in the Active Spot, draw a card.
+                debug!("Legendary Pulse: Drawing a card");
+                state.move_generation_stack.push((
+                    player_ending_turn,
+                    vec![SimpleAction::DrawCard { amount: 1 }],
+                ));
+            }
+            if ability_id == AbilityId::A3b057SnorlaxExFullMouthManner {
+                // At the end of your turn, if this Pokémon is in the Active Spot, heal 20 damage from it.
+                debug!("Full-Mouth Manner: Healing 20 damage from active");
+                let active = state.get_active_mut(player_ending_turn);
+                active.heal(20);
+            }
         }
     }
 
     // Process delayed damage effects on active Pokemon
     // Delayed damage triggers at the end of the opponent's turn (when their turn ends, the effect expires)
     let total_delayed_damage: u32 = state
-        .get_active(player_ending_turn)
-        .get_effects()
-        .iter()
-        .filter_map(|(effect, _)| {
-            if let CardEffect::DelayedDamage { amount } = effect {
-                Some(*amount)
-            } else {
-                None
-            }
+        .maybe_get_active(player_ending_turn)
+        .map(|active| {
+            active
+                .get_effects()
+                .iter()
+                .filter_map(|(effect, _)| {
+                    if let CardEffect::DelayedDamage { amount } = effect {
+                        Some(*amount)
+                    } else {
+                        None
+                    }
+                })
+                .sum()
         })
-        .sum();
+        .unwrap_or(0);
 
-    if total_delayed_damage > 0 {
+    if total_delayed_damage > 0 && state.maybe_get_active(player_ending_turn).is_some() {
         debug!(
             "Delayed damage: Applying {} damage to active Pokemon",
             total_delayed_damage
         );
         // The opponent is the source of the delayed damage (they used the attack that caused it)
         let opponent = (player_ending_turn + 1) % 2;
-        crate::actions::handle_damage(
-            state,
-            (opponent, 0), // Opponent's active Pokemon as the source
-            &[(total_delayed_damage, player_ending_turn, 0)], // Target is current player's active
-            false,         // Not from an active attack (it's a delayed effect)
-            None,          // No attack name
-        );
+        // Verify source exists (0,0 is active spot) - though handle_damage handles missing source
+        // but modify_damage panics if source is missing.
+        if state.in_play_pokemon[opponent][0].is_some() {
+            crate::actions::handle_damage(
+                state,
+                (opponent, 0), // Opponent's active Pokemon as the source
+                &[(total_delayed_damage, player_ending_turn, 0)], // Target is current player's active
+                false,         // Not from an active attack (it's a delayed effect)
+                None,          // No attack name
+            );
+        }
     }
 
     // Discard Metal Core Barrier from the opponent's Pokémon at the end of this player's turn.
@@ -319,9 +328,9 @@ pub(crate) fn can_play_item(state: &State) -> bool {
 }
 
 fn get_heavy_helmet_reduction(state: &State, (target_player, target_idx): (usize, usize)) -> u32 {
-    let defending_pokemon = &state.in_play_pokemon[target_player][target_idx]
-        .as_ref()
-        .expect("Defending Pokemon should be there when checking Heavy Helmet");
+    let Some(defending_pokemon) = &state.in_play_pokemon[target_player][target_idx] else {
+        return 0;
+    };
     if has_tool(defending_pokemon, CardId::B1219HeavyHelmet) {
         if let Card::Pokemon(pokemon_card) = &defending_pokemon.card {
             if pokemon_card.retreat_cost.len() >= 3 {
@@ -337,9 +346,9 @@ fn get_metal_core_barrier_reduction(
     state: &State,
     (target_player, target_idx): (usize, usize),
 ) -> u32 {
-    let defending_pokemon = &state.in_play_pokemon[target_player][target_idx]
-        .as_ref()
-        .expect("Defending Pokemon should be there when checking Metal Core Barrier");
+    let Some(defending_pokemon) = &state.in_play_pokemon[target_player][target_idx] else {
+        return 0;
+    };
     if has_tool(defending_pokemon, CardId::B2148MetalCoreBarrier) {
         debug!("Metal Core Barrier: Reducing damage by 50");
         return 50;
@@ -359,9 +368,9 @@ fn get_intimidating_fang_reduction(
         return 0;
     }
 
-    let defenders_active = &state.in_play_pokemon[target_player][0]
-        .as_ref()
-        .expect("Defending Pokemon should be there when checking Intimidating Fang");
+    let Some(defenders_active) = &state.in_play_pokemon[target_player][0] else {
+        return 0;
+    };
     if let Some(ability_id) = AbilityId::from_pokemon_id(&defenders_active.card.get_id()[..]) {
         if ability_id == AbilityId::A3a015LuxrayIntimidatingFang {
             debug!("Intimidating Fang: Reducing opponent's attack damage by 20");
@@ -556,12 +565,16 @@ pub(crate) fn modify_damage(
         return base_damage;
     }
 
-    let attacking_pokemon = state.in_play_pokemon[attacking_player][attacking_idx]
-        .as_ref()
-        .expect("Attacking Pokemon should be there when modifying damage");
-    let receiving_pokemon = state.in_play_pokemon[target_player][target_idx]
-        .as_ref()
-        .expect("Receiving Pokemon should be there when modifying damage");
+    let attacking_pokemon = state.in_play_pokemon[attacking_player][attacking_idx].as_ref();
+    let receiving_pokemon = state.in_play_pokemon[target_player][target_idx].as_ref();
+
+    let (attacking_pokemon, receiving_pokemon) = match (attacking_pokemon, receiving_pokemon) {
+        (Some(a), Some(r)) => (a, r),
+        _ => {
+            debug!("Attacker or receiver is missing, returning base damage");
+            return base_damage;
+        }
+    };
 
     // Check for Safeguard ability (prevents all damage from opponent's Pokémon ex)
     if let Some(ability_id) = AbilityId::from_pokemon_id(&receiving_pokemon.card.get_id()[..]) {

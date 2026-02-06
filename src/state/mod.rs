@@ -252,6 +252,20 @@ impl State {
             .unwrap_or_default()
     }
 
+    /// Checks if GuaranteedHeadsOnNextFlip effect is active and consumes it if present
+    pub(crate) fn consume_guaranteed_heads_effect(&mut self) -> bool {
+        if let Some(effects) = self.turn_effects.get_mut(&self.turn_count) {
+            if let Some(pos) = effects
+                .iter()
+                .position(|e| matches!(e, TurnEffect::GuaranteedHeadsOnNextFlip))
+            {
+                effects.remove(pos);
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn enumerate_in_play_pokemon(
         &self,
         player: usize,

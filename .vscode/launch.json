@@ -17,8 +17,8 @@
         }
       },
       "args": [
-        "example_decks/venusaur-exeggutor.txt",
-        "example_decks/weezing-arbok.txt",
+        "/workspaces/PokemonTCGP/simulator/decks/cd079be3.txt",
+        "/workspaces/PokemonTCGP/simulator/decks/49bf024f.txt",
         "--players",
         "e,e"
       ],
@@ -89,10 +89,10 @@
       },
       "args": [
         "simulate",
-        "/workspaces/PokemonTCGP/simulator/decks/cd079be3.txt",
-        "/workspaces/PokemonTCGP/simulator/decks/98e2b4b1.txt",
+        "/workspaces/PokemonTCGP/simulator/decks/43e4ed41.txt",
+        "/workspaces/PokemonTCGP/simulator/decks/541b73d1.txt",
         "--num",
-        "100",
+        "1000",
         "--players",
         "r,r"
       ],

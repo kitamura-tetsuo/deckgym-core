@@ -16,6 +16,7 @@ use crate::{
     effects::{CardEffect, TurnEffect},
     hooks::{can_evolve_into, contains_energy, get_retreat_cost, get_stage},
     models::{Attack, Card, EnergyType, StatusCondition},
+    state::PlayedCard,
     AttackId, State,
 };
 
@@ -533,6 +534,10 @@ fn forecast_effect_attack_by_mechanic(
             first_damage,
             second_damage,
         } => double_punching_family_attack(*first_damage, *second_damage),
+        Mechanic::DirectDamagePerEnergyOnTarget {
+            damage_per_energy,
+            bench_only,
+        } => direct_damage_per_energy_on_target(*damage_per_energy, *bench_only),
     }
 }
 
@@ -584,6 +589,36 @@ fn double_punching_family_attack(
     }))
 }
 
+fn direct_damage_per_energy_on_target(
+    damage_per_energy: u32,
+    bench_only: bool,
+) -> (Probabilities, Mutations) {
+    active_damage_effect_doutcome(0, move |_, state, action| {
+        let opponent = (action.actor + 1) % 2;
+        let mut choices = Vec::new();
+        
+        let pokemon_iter: Vec<(usize, &PlayedCard)> = if bench_only {
+            state.enumerate_bench_pokemon(opponent).collect()
+        } else {
+            state.enumerate_in_play_pokemon(opponent).collect()
+        };
+        
+        for (in_play_idx, pokemon) in pokemon_iter {
+            let energy_count = pokemon.attached_energy.len() as u32;
+            let damage = damage_per_energy * energy_count;
+            choices.push(SimpleAction::ApplyDamage {
+                attacking_ref: (action.actor, 0),
+                targets: vec![(damage, opponent, in_play_idx)],
+                is_from_active_attack: true,
+            });
+        }
+        
+        if choices.is_empty() {
+            return; // No valid targets - no damage applied
+        }
+        state.move_generation_stack.push((action.actor, choices));
+    })
+}
 
 
 fn coinflip_no_effect(fixed_damage: u32) -> (Probabilities, Mutations) {
@@ -879,24 +914,54 @@ fn damage_for_each_heads_attack(
     num_coins: usize,
     attack: &Attack,
 ) -> (Probabilities, Mutations) {
-    let mut probabilities: Vec<f64> = vec![];
-    let mut damages: Vec<u32> = vec![];
     let fixed_damage = if include_fixed_damage {
         attack.fixed_damage
     } else {
         0
     };
 
-    for heads_count in 0..=num_coins {
-        let tails_count = num_coins - heads_count;
-        let probability = (0.5f64).powi(heads_count as i32)
-            * (0.5f64).powi(tails_count as i32)
-            * binomial_coefficient(num_coins, heads_count) as f64;
-        probabilities.push(probability);
-        damages.push(fixed_damage + damage_per_head * heads_count as u32);
-    }
+    // We need to return a function that will check for Will effect at execution time
+    // and use the appropriate probabilities
+    let probabilities_normal: Vec<f64> = (0..=num_coins)
+        .map(|heads_count| {
+            let tails_count = num_coins - heads_count;
+            (0.5f64).powi(heads_count as i32)
+                * (0.5f64).powi(tails_count as i32)
+                * binomial_coefficient(num_coins, heads_count) as f64
+        })
+        .collect();
 
-    probabilistic_damage_attack(probabilities, damages)
+    let probabilities_will = calculate_binomial_probabilities_with_will(num_coins, true);
+
+    // Create a single mutation that checks for Will effect and applies appropriate damage distribution
+    let mutations: Mutations = vec![Box::new(move |rng, state: &mut State, action: &Action| {
+        let has_will = state.consume_guaranteed_heads_effect();
+        let probs = if has_will {
+            &probabilities_will
+        } else {
+            &probabilities_normal
+        };
+
+        // Sample from the distribution
+        let mut cumulative = 0.0;
+        let random_value: f64 = rng.gen();
+        let mut heads_count = 0;
+        
+        for (i, &prob) in probs.iter().enumerate() {
+            cumulative += prob;
+            if random_value < cumulative {
+                heads_count = i;
+                break;
+            }
+        }
+
+        let damage = fixed_damage + damage_per_head * heads_count as u32;
+        let opponent = (action.actor + 1) % 2;
+        let attacking_ref = (action.actor, 0);
+        handle_damage(state, attacking_ref, &[(damage, opponent, 0)], true, None);
+    })];
+
+    (vec![1.0], mutations)
 }
 
 /// Deal damage and attach energy to a pokemon of choice in the bench.
@@ -2026,14 +2091,38 @@ fn damage_for_each_heads_with_status_attack(
 }
 
 /// Calculate binomial probabilities for n coin flips
-fn calculate_binomial_probabilities(n: usize) -> Vec<f64> {
-    let mut probs = Vec::new();
-    for k in 0..=n {
-        let coef = binomial_coefficient(n, k);
-        let prob = coef as f64 / (1 << n) as f64;
-        probs.push(prob);
+/// If guaranteed_first_heads is true, the first coin is guaranteed to be heads
+fn calculate_binomial_probabilities_with_will(n: usize, guaranteed_first_heads: bool) -> Vec<f64> {
+    if guaranteed_first_heads && n > 0 {
+        // First coin is guaranteed heads, so we flip (n-1) coins and add 1 to the heads count
+        // Probability of k total heads = probability of (k-1) heads from (n-1) flips
+        let mut probs = vec![0.0; n + 1];
+        
+        // k=0 is impossible (first flip is guaranteed heads)
+        probs[0] = 0.0;
+        
+        // For k >= 1, it's the probability of getting (k-1) heads from (n-1) flips
+        for k in 1..=n {
+            let remaining_heads = k - 1;
+            let coef = binomial_coefficient(n - 1, remaining_heads);
+            probs[k] = coef as f64 / (1 << (n - 1)) as f64;
+        }
+        probs
+    } else {
+        // Normal binomial distribution
+        let mut probs = Vec::new();
+        for k in 0..=n {
+            let coef = binomial_coefficient(n, k);
+            let prob = coef as f64 / (1 << n) as f64;
+            probs.push(prob);
+        }
+        probs
     }
-    probs
+}
+
+/// Calculate binomial probabilities for n coin flips (normal version)
+fn calculate_binomial_probabilities(n: usize) -> Vec<f64> {
+    calculate_binomial_probabilities_with_will(n, false)
 }
 
 /// Mega Blastoise ex - Triple Bombardment: Conditional bench damage based on extra energy

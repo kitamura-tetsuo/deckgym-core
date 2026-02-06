@@ -118,6 +118,8 @@ pub fn trainer_move_generation_implementation(
         | CardId::A4198Silver
         | CardId::A4b336Silver
         | CardId::A4b337Silver
+        | CardId::A4156Will
+        | CardId::A4196Will
         | CardId::PA002XSpeed
         | CardId::PA005PokeBall
         | CardId::A2b111PokeBall
@@ -147,6 +149,9 @@ pub fn trainer_move_generation_implementation(
         CardId::B1225Copycat | CardId::B1270Copycat => can_play_trainer(state, trainer_card),
         CardId::A2b069Iono | CardId::A2b088Iono | CardId::A4b340Iono | CardId::A4b341Iono => {
             can_play_trainer(state, trainer_card)
+        }
+        CardId::A2b072TeamRocketGrunt | CardId::A2b091TeamRocketGrunt => {
+            can_play_team_rocket_grunt(state, trainer_card)
         }
         CardId::B1223May | CardId::B1268May => can_play_trainer(state, trainer_card),
         CardId::B1224Fantina | CardId::B1269Fantina => can_play_trainer(state, trainer_card),
@@ -626,5 +631,23 @@ fn can_play_quick_grow_extract(
         cannot_play_trainer()
     } else {
         can_play_trainer(state, trainer_card)
+    }
+}
+
+/// Check if Team Rocket Grunt can be played (requires opponent's active Pokemon to have at least 1 energy)
+fn can_play_team_rocket_grunt(
+    state: &State,
+    trainer_card: &TrainerCard,
+) -> Option<Vec<SimpleAction>> {
+    let opponent = (state.current_player + 1) % 2;
+    let opponent_has_energy = state
+        .maybe_get_active(opponent)
+        .map(|p| !p.attached_energy.is_empty())
+        .unwrap_or(false);
+
+    if opponent_has_energy {
+        can_play_trainer(state, trainer_card)
+    } else {
+        cannot_play_trainer()
     }
 }

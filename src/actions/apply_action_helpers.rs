@@ -206,25 +206,27 @@ fn apply_pokemon_checkup(
     for (i, is_awake) in sleeps_to_handle.iter().zip(&outcome[0..num_sleeps]) {
         if *is_awake {
             let (player, in_play_idx) = i;
-            let pokemon = mutated_state.in_play_pokemon[*player][*in_play_idx]
-                .as_mut()
-                .expect("Pokemon should be there...");
-            pokemon.asleep = false;
-            debug!("{player}'s Pokemon {in_play_idx} woke up");
+            if let Some(pokemon) = mutated_state.in_play_pokemon[*player][*in_play_idx].as_mut() {
+                pokemon.asleep = false;
+                debug!("{player}'s Pokemon {in_play_idx} woke up");
+            }
         }
     }
 
     // These always happen regardless of outcome_binary_vector
     for (player, in_play_idx) in paralyzed_to_handle {
-        let pokemon = mutated_state.in_play_pokemon[player][in_play_idx]
-            .as_mut()
-            .expect("Pokemon should be there...");
-        pokemon.paralyzed = false;
-        debug!("{player}'s Pokemon {in_play_idx} is un-paralyzed");
+        if let Some(pokemon) = mutated_state.in_play_pokemon[player][in_play_idx].as_mut() {
+            pokemon.paralyzed = false;
+            debug!("{player}'s Pokemon {in_play_idx} is un-paralyzed");
+        }
     }
 
     // Poison always deals 10 damage (+10 for each Nihilego with More Poison ability opponent has in play)
     for (player, in_play_idx) in poisons_to_handle {
+        if mutated_state.in_play_pokemon[player][in_play_idx].is_none() {
+            continue;
+        }
+
         let attacking_ref = (player, in_play_idx); // present it as self-damage
         let poison_damage = get_poison_damage(mutated_state, player, in_play_idx);
 
@@ -239,25 +241,30 @@ fn apply_pokemon_checkup(
 
     // Burn always deals 20 damage, then coin flip for healing
     for (i, (player, in_play_idx)) in burns_to_handle.iter().enumerate() {
+        if mutated_state.in_play_pokemon[*player][*in_play_idx].is_none() {
+            continue;
+        }
+
         // Check if pokemon heals from burn (coin flip result)
         let heals_from_burn = outcome[num_sleeps + i];
         if heals_from_burn {
-            let pokemon = mutated_state.in_play_pokemon[*player][*in_play_idx]
-                .as_mut()
-                .expect("Pokemon should be there...");
-            pokemon.burned = false;
-            debug!("{player}'s Pokemon {in_play_idx} healed from burn");
+            if let Some(pokemon) = mutated_state.in_play_pokemon[*player][*in_play_idx].as_mut() {
+                pokemon.burned = false;
+                debug!("{player}'s Pokemon {in_play_idx} healed from burn");
+            }
         }
 
         // Deal burn damage
-        let attacking_ref = (*player, *in_play_idx); // present it as self-damage
-        handle_damage(
-            mutated_state,
-            attacking_ref,
-            &[(20, *player, *in_play_idx)],
-            false,
-            None,
-        );
+        if mutated_state.in_play_pokemon[*player][*in_play_idx].is_some() {
+            let attacking_ref = (*player, *in_play_idx); // present it as self-damage
+            handle_damage(
+                mutated_state,
+                attacking_ref,
+                &[(20, *player, *in_play_idx)],
+                false,
+                None,
+            );
+        }
     }
 
     // Advance turn
@@ -356,9 +363,9 @@ pub(crate) fn handle_damage(
 
         // Apply damage
         {
-            let target_pokemon = state.in_play_pokemon[target_player][target_pokemon_idx]
-                .as_mut()
-                .expect("Pokemon should be there if taking damage");
+            let Some(target_pokemon) = state.in_play_pokemon[target_player][target_pokemon_idx].as_mut() else {
+                continue;
+            };
             target_pokemon.apply_damage(damage); // Applies without surpassing 0 HP
             debug!(
                 "Dealt {} damage to opponent's {} Pokemon. Remaining HP: {}",
@@ -374,9 +381,9 @@ pub(crate) fn handle_damage(
             continue;
         }
 
-        let target_pokemon = state.in_play_pokemon[target_player][target_pokemon_idx]
-            .as_ref()
-            .expect("Pokemon should be there if taking damage");
+        let Some(target_pokemon) = state.in_play_pokemon[target_player][target_pokemon_idx].as_ref() else {
+            continue;
+        };
         let counter_damage = {
             if target_pokemon_idx == 0 {
                 get_counterattack_damage(target_pokemon)
@@ -388,9 +395,9 @@ pub(crate) fn handle_damage(
 
         // Apply counterattack damage and poison
         if counter_damage > 0 || should_poison {
-            let attacking_pokemon = state.in_play_pokemon[attacking_player][0]
-                .as_mut()
-                .expect("Active Pokemon should be there");
+            let Some(attacking_pokemon) = state.in_play_pokemon[attacking_player][0].as_mut() else {
+                continue;
+            };
 
             if counter_damage > 0 {
                 attacking_pokemon.apply_damage(counter_damage);
@@ -544,5 +551,33 @@ mod tests {
         // Second attack should deal damage normally
         handle_damage(&mut state, (0, 0), &[(30, 1, 0)], true, None);
         assert_eq!(state.get_active(1).remaining_hp, starting_hp - 30);
+    }
+
+    #[test]
+    fn test_no_panic_poison_and_burn_ko() {
+        let (deck_a, deck_b) = crate::test_helpers::load_test_decks();
+        let mut state = State::new(&deck_a, &deck_b);
+        let mon = get_card_by_enum(CardId::A1001Bulbasaur);
+        let mut played_mon = to_playable_card(&mon, false);
+        played_mon.remaining_hp = 10;
+        played_mon.poisoned = true;
+        played_mon.burned = true;
+
+        state.in_play_pokemon[0][0] = Some(played_mon);
+
+        // This should not panic anymore
+        apply_pokemon_checkup(&mut state, vec![], vec![], vec![(0, 0)], vec![(0, 0)], vec![false]);
+
+        // Verify the Pokemon is gone
+        assert!(state.in_play_pokemon[0][0].is_none());
+    }
+
+    #[test]
+    fn test_modify_damage_no_panic_missing_mon() {
+        let state = State::default();
+        // attacking_ref = (0, 0), target_ref = (10, 1, 0)
+        // Both missing in State::default()
+        let damage = modify_damage(&state, (0, 0), (10, 1, 0), true, None);
+        assert_eq!(damage, 10);
     }
 }

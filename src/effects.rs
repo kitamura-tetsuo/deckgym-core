@@ -42,4 +42,6 @@ pub enum TurnEffect {
         amount: u32,
         pokemon_names: Vec<String>,
     },
+    GuaranteedHeadsOnNextFlip,
 }
+

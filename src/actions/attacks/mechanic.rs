@@ -186,4 +186,8 @@ pub enum Mechanic {
         first_damage: u32,
         second_damage: u32,
     },
+    DirectDamagePerEnergyOnTarget {
+        damage_per_energy: u32,
+        bench_only: bool,
+    },
 }

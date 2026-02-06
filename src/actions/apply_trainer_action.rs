@@ -129,6 +129,9 @@ pub fn forecast_trainer_action(
         CardId::A2b069Iono | CardId::A2b088Iono | CardId::A4b340Iono | CardId::A4b341Iono => {
             doutcome(iono_effect)
         }
+        CardId::A2b072TeamRocketGrunt | CardId::A2b091TeamRocketGrunt => {
+            team_rocket_grunt_outcomes()
+        }
         CardId::B1223May | CardId::B1268May => may_effect(acting_player, state),
         CardId::B1224Fantina | CardId::B1269Fantina => doutcome(fantina_effect),
         CardId::B1226Lisia | CardId::B1271Lisia => lisia_effect(acting_player, state),
@@ -145,6 +148,7 @@ pub fn forecast_trainer_action(
         }
         CardId::B1a069Serena | CardId::B1a082Serena => serena_effect(acting_player, state),
         CardId::B2145LuckyIcePop => lucky_ice_pop_outcomes(),
+        CardId::A4156Will | CardId::A4196Will => doutcome(will_effect),
         // Stadium cards
         CardId::B2153TrainingArea | CardId::B2154StartingPlains | CardId::B2155PeculiarPlaza => {
             doutcome(stadium_effect)
@@ -286,6 +290,37 @@ fn lucky_ice_pop_outcomes() -> (Probabilities, Mutations) {
         }
     }));
 
+    (probabilities, outcomes)
+}
+
+fn team_rocket_grunt_outcomes() -> (Probabilities, Mutations) {
+    // Flip a coin until you get tails. For each heads, discard a random Energy from opponent's Active Pokémon.
+    // 50% no energy (tails on first flip), 25% 1 energy, 12.5% 2 energy, etc.
+    let probabilities = vec![0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625];
+    let mut outcomes: Mutations = vec![];
+    
+    for num_heads in 0..6 {
+        outcomes.push(Box::new(move |_, state: &mut State, action: &Action| {
+            let opponent = (action.actor + 1) % 2;
+            if let Some(active) = state.in_play_pokemon[opponent][0].as_mut() {
+                let mut to_discard = Vec::new();
+                let mut current_energies = active.attached_energy.clone();
+                
+                for _ in 0..num_heads {
+                    if let Some(energy) = current_energies.pop() {
+                        to_discard.push(energy);
+                    } else {
+                        break;
+                    }
+                }
+                
+                if !to_discard.is_empty() {
+                    state.discard_from_active(opponent, &to_discard);
+                }
+            }
+        }));
+    }
+    
     (probabilities, outcomes)
 }
 
@@ -571,6 +606,13 @@ fn red_effect(_: &mut StdRng, state: &mut State, _: &Action) {
     // During this turn, attacks used by your Pokémon do +20 damage to your opponent's Active Pokémon ex.
     state.add_turn_effect(TurnEffect::IncreasedDamageAgainstEx { amount: 20 }, 0);
 }
+
+fn will_effect(_: &mut StdRng, state: &mut State, _: &Action) {
+    // The next time you flip any number of coins for the effect of an attack, Ability, or Trainer card
+    // after using this card on this turn, the first coin flip will definitely be heads.
+    state.add_turn_effect(TurnEffect::GuaranteedHeadsOnNextFlip, 0);
+}
+
 
 fn koga_effect(_: &mut StdRng, state: &mut State, action: &Action) {
     // Put your Muk or Weezing in the Active Spot into your hand.
