@@ -80,8 +80,8 @@ fn forecast_attack_inner(
         let mechanic = EFFECT_MECHANIC_MAP.get(&effect_text[..]);
         let Some(mechanic) = mechanic else {
             panic!(
-                "No implementation found for attack effect: {:?} on attack {:?} of Pokemon {:?}",
-                effect_text, attack, card
+                "No implementation found for attack effect: {:?} on attack {:?} of Pokemon {}",
+                effect_text, attack, card.get_full_identity()
             );
         };
         forecast_effect_attack_by_mechanic(state, attack, mechanic)

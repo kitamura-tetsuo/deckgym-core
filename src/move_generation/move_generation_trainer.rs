@@ -542,12 +542,19 @@ fn can_play_flame_patch(state: &State, trainer_card: &TrainerCard) -> Option<Vec
     }
 }
 
-/// Check if Piers can be played (requires Galarian Obstagoon in play)
+/// Check if Piers can be played (requires Galarian Obstagoon in play and opponent has energy)
 fn can_play_piers(state: &State, trainer_card: &TrainerCard) -> Option<Vec<SimpleAction>> {
     let has_obstagoon = state
         .enumerate_in_play_pokemon(state.current_player)
         .any(|(_, pokemon)| pokemon.get_name() == "Galarian Obstagoon");
-    if has_obstagoon {
+
+    let opponent = (state.current_player + 1) % 2;
+    let opponent_has_energy = state
+        .maybe_get_active(opponent)
+        .map(|p| !p.attached_energy.is_empty())
+        .unwrap_or(false);
+
+    if has_obstagoon && opponent_has_energy {
         can_play_trainer(state, trainer_card)
     } else {
         cannot_play_trainer()
