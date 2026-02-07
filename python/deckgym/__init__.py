@@ -13,6 +13,8 @@ from .deckgym import (
     py_simulate as simulate,
     get_player_types,
 )
+from gymnasium.envs.registration import register
+from .envs.ptcgp_env import PTCGPEnv
 
 __all__ = [
     "EnergyType",
@@ -28,4 +30,10 @@ __all__ = [
     "SimulationResults",
     "simulate",
     "get_player_types",
+    "PTCGPEnv",
 ]
+
+register(
+    id="PTCGP-v0",
+    entry_point="deckgym.envs.ptcgp_env:PTCGPEnv",
+)
