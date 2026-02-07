@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use strum_macros::EnumIter;
 
 use crate::{
     models::{EnergyType, PlayedCard, TrainerCard},
@@ -7,7 +8,7 @@ use crate::{
 };
 
 // TODO: Probably best to generate this file from database.json via card_enum_generator.rs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumIter)]
 pub enum ToolId {
     A2147GiantCape,
     A2148RockyHelmet,

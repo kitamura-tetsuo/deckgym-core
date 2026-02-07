@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 use crate::{
     deck::Deck,
+    encoding,
     game::Game,
     generate_possible_actions,
     models::{Ability, Attack, Card, EnergyType, PlayedCard},
@@ -800,6 +801,28 @@ impl PyGameState {
         PyState {
             state: self.game.get_state_clone(),
         }
+    }
+
+    pub fn encode_observation(&self) -> Vec<f32> {
+        encoding::encode_observation(self.game.state(), self.game.state().current_player)
+    }
+
+    pub fn legal_actions(&self) -> Vec<usize> {
+        let (_actor, actions) = generate_possible_actions(self.game.state());
+        actions
+            .iter()
+            .filter_map(|a| encoding::encode_action(&a.action))
+            .collect()
+    }
+
+    #[staticmethod]
+    pub fn action_name(action_id: usize) -> String {
+        encoding::action_name(action_id)
+    }
+
+    #[staticmethod]
+    pub fn get_action_space_size() -> usize {
+        encoding::get_action_space_size()
     }
 }
 
