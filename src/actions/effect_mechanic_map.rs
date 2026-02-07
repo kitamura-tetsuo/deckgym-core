@@ -35,7 +35,10 @@ pub static EFFECT_MECHANIC_MAP: LazyLock<HashMap<&'static str, Mechanic>> = Lazy
     // map.insert("Both Active Pokémon are now Confused.", todo_implementation);
     // map.insert("Change the type of a random Energy attached to your opponent's Active Pokémon to 1 of the following at random: [G], [R], [W], [L], [P], [F], [D], or [M].", todo_implementation);
     // map.insert("Change the type of the next Energy that will be generated for your opponent to 1 of the following at random: [G], [R], [W], [L], [P], [F], [D], or [M].", todo_implementation);
-    // map.insert("Choose 1 of your opponent's Active Pokémon's attacks and use it as this attack.", todo_implementation);
+    map.insert(
+        "Choose 1 of your opponent's Active Pokémon's attacks and use it as this attack.",
+        Mechanic::UseOpponentActiveAttack,
+    );
     // map.insert("Choose 1 of your opponent's Pokémon's attacks and use it as this attack. If this Pokémon doesn't have the necessary Energy to use that attack, this attack does nothing.", todo_implementation);
     map.insert("Choose 2 of your Benched Pokémon. For each of those Pokémon, take a [W] Energy from your Energy Zone and attach it to that Pokémon.", Mechanic::ManaphyOceanicGift);
     // map.insert("Choose either Poisoned or Confused. Your opponent's Active Pokémon is now affected by that Special Condition.", todo_implementation);

@@ -116,6 +116,7 @@ pub enum SimpleAction {
     ReturnPokemonToHand {
         in_play_idx: usize,
     },
+    UseOpponentAttack(usize),
     Noop, // No operation, used to have the user say "no" to a question
 }
 
@@ -240,6 +241,7 @@ impl fmt::Display for SimpleAction {
             SimpleAction::ReturnPokemonToHand { in_play_idx } => {
                 write!(f, "ReturnPokemonToHand({in_play_idx})")
             }
+            SimpleAction::UseOpponentAttack(index) => write!(f, "UseOpponentAttack({index})"),
             SimpleAction::Noop => write!(f, "Noop"),
         }
     }

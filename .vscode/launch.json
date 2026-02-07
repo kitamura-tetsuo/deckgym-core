@@ -17,8 +17,8 @@
         }
       },
       "args": [
-        "/workspaces/PokemonTCGP/simulator/decks/cd079be3.txt",
         "/workspaces/PokemonTCGP/simulator/decks/49bf024f.txt",
+        "/workspaces/PokemonTCGP/simulator/decks/dihead.txt",
         "--players",
         "e,e"
       ],
@@ -89,8 +89,8 @@
       },
       "args": [
         "simulate",
-        "/workspaces/PokemonTCGP/simulator/decks/43e4ed41.txt",
-        "/workspaces/PokemonTCGP/simulator/decks/541b73d1.txt",
+        "/workspaces/PokemonTCGP/simulator/decks/0cf6741e.txt",
+        "/workspaces/PokemonTCGP/simulator/decks/91ad681e.txt",
         "--num",
         "1000",
         "--players",

@@ -510,6 +510,9 @@ fn get_turn_effect_damage_reduction(
             } if *player == target_player && target_energy_type == Some(*energy_type) => {
                 Some(*amount)
             }
+            TurnEffect::ReducedDamageForPlayer { amount, player } if *player == target_player => {
+                Some(*amount)
+            }
             _ => None,
         })
         .sum::<u32>()
@@ -1208,6 +1211,40 @@ mod tests {
             can_evolve_into(&kabuto, &dome_fossil),
             "Kabuto should be able to evolve from Dome Fossil"
         );
+    }
+
+    #[test]
+    fn test_blue_damage_reduction_effect() {
+        let mut state = State::default();
+        state.turn_count = 1;
+        state.current_player = 0;
+
+        // Manually add the effect to simulate Blue card effect
+        state.add_turn_effect(
+            TurnEffect::ReducedDamageForPlayer {
+                amount: 10,
+                player: 0,
+            },
+            1,
+        );
+
+        let charizars_card = get_card_by_enum(CardId::A1004VenusaurEx); // just a pokemon
+        let attacker = to_playable_card(&charizars_card, false);
+        state.in_play_pokemon[1][0] = Some(attacker);
+
+        let target_card = get_card_by_enum(CardId::A1001Bulbasaur);
+        let target = to_playable_card(&target_card, false);
+        state.in_play_pokemon[0][0] = Some(target);
+
+        // Advance turn to opponent's turn
+        state.turn_count = 2;
+        state.current_player = 1;
+
+        // Calculate damage from player 1 (attacker) to player 0 (target)
+        // Base damage 30 should be reduced by 10
+        let damage = modify_damage(&state, (1, 0), (30, 0, 0), true, None);
+
+        assert_eq!(damage, 20, "Damage should be reduced from 30 to 20 by Blue card effect");
     }
 
     #[test]

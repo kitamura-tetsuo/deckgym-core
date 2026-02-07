@@ -47,5 +47,9 @@ pub enum TurnEffect {
         pokemon_names: Vec<String>,
     },
     GuaranteedHeadsOnNextFlip,
+    ReducedDamageForPlayer {
+        amount: u32,
+        player: usize,
+    },
 }
 

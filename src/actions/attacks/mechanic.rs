@@ -190,4 +190,5 @@ pub enum Mechanic {
         damage_per_energy: u32,
         bench_only: bool,
     },
+    UseOpponentActiveAttack,
 }

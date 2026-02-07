@@ -140,6 +140,7 @@ pub fn forecast_trainer_action(
         }
         CardId::A2a074Barry | CardId::A2a089Barry => doutcome(barry_effect),
         CardId::A2a075Adaman | CardId::A2a090Adaman => doutcome(adaman_effect),
+        CardId::A1a067Blue | CardId::A1a081Blue => doutcome(blue_effect),
         CardId::B2149Diantha | CardId::B2190Diantha => doutcome(diantha_effect),
         CardId::B2152Piers | CardId::B2193Piers => doutcome(piers_effect),
         CardId::B1a066ClemontsBackpack => doutcome(clemonts_backpack_effect),
@@ -476,6 +477,17 @@ fn barry_effect(_: &mut StdRng, state: &mut State, _: &Action) {
             ],
         },
         0,
+    );
+}
+
+fn blue_effect(_: &mut StdRng, state: &mut State, action: &Action) {
+    // During your opponent's next turn, all of your Pokémon take -10 damage from attacks.
+    state.add_turn_effect(
+        TurnEffect::ReducedDamageForPlayer {
+            amount: 10,
+            player: action.actor,
+        },
+        1,
     );
 }
 

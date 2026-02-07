@@ -113,6 +113,9 @@ pub fn trainer_move_generation_implementation(
         CardId::A4157Lyra | CardId::A4197Lyra | CardId::A4b332Lyra | CardId::A4b333Lyra => {
             can_play_lyra(state, trainer_card)
         }
+        CardId::A3151Guzma
+        | CardId::A3193Guzma
+        | CardId::A3208Guzma => can_play_guzma(state, trainer_card),
         // Simple cases: always can play
         CardId::A4158Silver
         | CardId::A4198Silver
@@ -133,15 +136,14 @@ pub fn trainer_move_generation_implementation(
         | CardId::A1a065MythicalSlab
         | CardId::A1a068Leaf
         | CardId::A1a082Leaf
+        | CardId::A1a067Blue
+        | CardId::A1a081Blue
         | CardId::A4b346Leaf
         | CardId::A4b347Leaf
         | CardId::A2b071Red
         | CardId::A2b090Red
         | CardId::A4b352Red
-        | CardId::A4b353Red
-        | CardId::A3151Guzma
-        | CardId::A3193Guzma
-        | CardId::A3208Guzma => can_play_trainer(state, trainer_card),
+        | CardId::A4b353Red => can_play_trainer(state, trainer_card),
         CardId::A3b066EeveeBag
         | CardId::A3b107EeveeBag
         | CardId::A4b308EeveeBag
@@ -650,6 +652,19 @@ fn can_play_team_rocket_grunt(
         .unwrap_or(false);
 
     if opponent_has_energy {
+        can_play_trainer(state, trainer_card)
+    } else {
+        cannot_play_trainer()
+    }
+}
+
+fn can_play_guzma(state: &State, trainer_card: &TrainerCard) -> Option<Vec<SimpleAction>> {
+    let opponent = (state.current_player + 1) % 2;
+    let opponent_has_tool = state
+        .enumerate_in_play_pokemon(opponent)
+        .any(|(_, pokemon)| pokemon.has_tool_attached());
+
+    if opponent_has_tool {
         can_play_trainer(state, trainer_card)
     } else {
         cannot_play_trainer()

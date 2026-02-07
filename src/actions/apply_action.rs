@@ -58,6 +58,13 @@ pub fn forecast_action(state: &State, action: &Action) -> (Probabilities, Mutati
         | SimpleAction::Noop => forecast_deterministic_action(),
         SimpleAction::UseAbility { in_play_idx } => forecast_ability(state, action, *in_play_idx),
         SimpleAction::Attack(index) => forecast_attack(action.actor, state, *index),
+        SimpleAction::UseOpponentAttack(index) => {
+            crate::actions::apply_attack_action::forecast_use_opponent_attack(
+                action.actor,
+                state,
+                *index,
+            )
+        }
         SimpleAction::Play { trainer_card } => {
             forecast_trainer_action(action.actor, state, trainer_card)
         }

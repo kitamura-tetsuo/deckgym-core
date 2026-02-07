@@ -538,6 +538,7 @@ fn forecast_effect_attack_by_mechanic(
             damage_per_energy,
             bench_only,
         } => direct_damage_per_energy_on_target(*damage_per_energy, *bench_only),
+        Mechanic::UseOpponentActiveAttack => use_opponent_active_attack(state),
     }
 }
 
@@ -618,6 +619,36 @@ fn direct_damage_per_energy_on_target(
         }
         state.move_generation_stack.push((action.actor, choices));
     })
+}
+
+fn use_opponent_active_attack(_state: &State) -> (Probabilities, Mutations) {
+    active_damage_effect_doutcome(0, |_, state, action| {
+        let opponent = (action.actor + 1) % 2;
+        let opponent_active = state.get_active(opponent);
+        let attacks = opponent_active.card.get_attacks();
+
+        let mut choices = Vec::new();
+        for (i, _) in attacks.iter().enumerate() {
+            choices.push(SimpleAction::UseOpponentAttack(i));
+        }
+
+        if !choices.is_empty() {
+            state.move_generation_stack.push((action.actor, choices));
+        }
+    })
+}
+
+pub(crate) fn forecast_use_opponent_attack(
+    acting_player: usize,
+    state: &State,
+    attack_index: usize,
+) -> (Probabilities, Mutations) {
+    let opponent = (acting_player + 1) % 2;
+    let opponent_active = state.get_active(opponent);
+    let attacks = opponent_active.card.get_attacks();
+    let attack = attacks[attack_index].clone();
+
+    forecast_attack_inner(state, &opponent_active.card, &attack, attack_index)
 }
 
 
