@@ -788,6 +788,29 @@ impl PyGameState {
         Ok((done, won))
     }
 
+    pub fn step_with_id(&mut self, action_id: usize) -> PyResult<(bool, bool)> {
+        let (_actor, actions) = generate_possible_actions(self.game.state());
+
+        let mut found_idx = None;
+        for (i, action) in actions.iter().enumerate() {
+            if let Some(enc_id) = encoding::encode_action(&action.action) {
+                if enc_id == action_id {
+                    found_idx = Some(i);
+                    break;
+                }
+            }
+        }
+
+        if let Some(idx) = found_idx {
+            self.step(idx)
+        } else {
+            Err(PyValueError::new_err(format!(
+                "Action ID {} is not currently legal",
+                action_id
+            )))
+        }
+    }
+
     pub fn reset(&mut self, py: Python) -> PyResult<()> {
         let deck_a_deck = parse_deck(py, &self.deck_a_source)?;
         let deck_b_deck = parse_deck(py, &self.deck_b_source)?;
