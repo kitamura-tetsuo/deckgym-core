@@ -149,13 +149,13 @@ pub fn action_name(id: usize) -> String {
     if id == OFFSET_END_TURN {
         return "EndTurn".to_string();
     }
-    if id >= OFFSET_ATTACK && id < OFFSET_RETREAT {
+    if (OFFSET_ATTACK..OFFSET_RETREAT).contains(&id) {
         return format!("Attack({})", id - OFFSET_ATTACK);
     }
-    if id >= OFFSET_RETREAT && id < OFFSET_USE_ABILITY {
+    if (OFFSET_RETREAT..OFFSET_USE_ABILITY).contains(&id) {
         return format!("Retreat({})", id - OFFSET_RETREAT);
     }
-    if id >= OFFSET_USE_ABILITY && id < OFFSET_PLACE {
+    if (OFFSET_USE_ABILITY..OFFSET_PLACE).contains(&id) {
         return format!("UseAbility({})", id - OFFSET_USE_ABILITY);
     }
     if id >= OFFSET_PLACE && id < offset_evolve {
