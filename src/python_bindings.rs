@@ -1,3 +1,4 @@
+use pyo3::exceptions::{PyIOError, PyIndexError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::wrap_pyfunction;
@@ -6,8 +7,9 @@ use std::collections::HashMap;
 use crate::{
     deck::Deck,
     game::Game,
+    generate_possible_actions,
     models::{Ability, Attack, Card, EnergyType, PlayedCard},
-    players::{create_players, fill_code_array, parse_player_code},
+    players::{create_players, fill_code_array, parse_player_code, RandomPlayer},
     state::{GameOutcome, State},
 };
 
@@ -723,6 +725,121 @@ impl PyGame {
     }
 }
 
+/// Python wrapper for GameState used in RL
+#[pyclass(unsendable)]
+pub struct PyGameState {
+    game: Game<'static>,
+    deck_a_source: PyObject,
+    deck_b_source: PyObject,
+    seed: Option<u64>,
+}
+
+#[pymethods]
+impl PyGameState {
+    #[new]
+    #[pyo3(signature = (deck_a, deck_b, seed=None))]
+    pub fn new(
+        py: Python,
+        deck_a: PyObject,
+        deck_b: PyObject,
+        seed: Option<u64>,
+    ) -> PyResult<Self> {
+        let deck_a_deck = parse_deck(py, &deck_a)?;
+        let deck_b_deck = parse_deck(py, &deck_b)?;
+
+        let game_seed = seed.unwrap_or_else(rand::random::<u64>);
+        let game = create_game_from_decks(deck_a_deck, deck_b_deck, game_seed);
+
+        Ok(PyGameState {
+            game,
+            deck_a_source: deck_a,
+            deck_b_source: deck_b,
+            seed,
+        })
+    }
+
+    pub fn step(&mut self, action_idx: usize) -> PyResult<(bool, bool)> {
+        let (_actor, actions) = generate_possible_actions(self.game.state());
+
+        if action_idx >= actions.len() {
+            return Err(PyIndexError::new_err(format!(
+                "Action index {} out of bounds. Valid range: 0-{}",
+                action_idx,
+                actions.len().saturating_sub(1)
+            )));
+        }
+
+        let action = &actions[action_idx];
+        self.game.apply_action(action);
+
+        let done = self.game.is_game_over();
+        let won = if done {
+            if let Some(GameOutcome::Win(winner)) = self.game.state().winner {
+                // Return true if Player 0 won (usually the agent)
+                winner == 0
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        Ok((done, won))
+    }
+
+    pub fn reset(&mut self, py: Python) -> PyResult<()> {
+        let deck_a_deck = parse_deck(py, &self.deck_a_source)?;
+        let deck_b_deck = parse_deck(py, &self.deck_b_source)?;
+
+        let game_seed = self.seed.unwrap_or_else(rand::random::<u64>);
+        self.game = create_game_from_decks(deck_a_deck, deck_b_deck, game_seed);
+        Ok(())
+    }
+
+    pub fn get_state(&self) -> PyState {
+        PyState {
+            state: self.game.get_state_clone(),
+        }
+    }
+}
+
+// Helper functions for PyGameState
+
+fn parse_deck(py: Python, source: &PyObject) -> PyResult<Deck> {
+    if let Ok(path) = source.extract::<String>(py) {
+        // Try to load from file first
+        if std::path::Path::new(&path).exists() {
+            Deck::from_file(&path).map_err(|e| PyIOError::new_err(e))
+        } else {
+            // Treat as string content
+            Deck::from_string(&path).map_err(|e| PyValueError::new_err(e))
+        }
+    } else if let Ok(card_ids) = source.extract::<Vec<String>>(py) {
+        // List of card IDs
+        let mut deck_content = String::new();
+        for id in card_ids {
+            deck_content.push_str(&format!("1 {}\n", id));
+        }
+        Deck::from_string(&deck_content).map_err(|e| PyValueError::new_err(e))
+    } else {
+        Err(PyValueError::new_err(
+            "Deck source must be a file path, deck string, or list of card IDs",
+        ))
+    }
+}
+
+fn create_game_from_decks(deck_a: Deck, deck_b: Deck, seed: u64) -> Game<'static> {
+    use crate::players::Player;
+    let player_a = Box::new(RandomPlayer {
+        deck: deck_a.clone(),
+    });
+    let player_b = Box::new(RandomPlayer {
+        deck: deck_b.clone(),
+    });
+    let players: Vec<Box<dyn Player>> = vec![player_a, player_b];
+    Game::new(players, seed)
+}
+
 /// Simulation results
 #[pyclass]
 pub struct PySimulationResults {
@@ -850,10 +967,63 @@ pub fn deckgym(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPlayedCard>()?;
     m.add_class::<PyDeck>()?;
     m.add_class::<PyGame>()?;
+    m.add_class::<PyGameState>()?;
     m.add_class::<PyState>()?;
     m.add_class::<PyGameOutcome>()?;
     m.add_class::<PySimulationResults>()?;
     m.add_function(wrap_pyfunction!(py_simulate, m)?)?;
     m.add_function(wrap_pyfunction!(get_player_types, m)?)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pygamestate_init_and_step() {
+        use pyo3::types::PyList;
+
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            // Use a hardcoded list of card IDs to avoid dependency on external files
+            // We need 20 cards, max 2 copies of each name.
+            // Using IDs from Genetic Apex (A1)
+            let card_ids = vec![
+                "A1 001", "A1 001", // Bulbasaur
+                "A1 002", "A1 002", // Ivysaur
+                "A1 003", "A1 003", // Venusaur
+                "A1 004", "A1 004", // Charmander
+                "A1 005", "A1 005", // Charmeleon
+                "A1 006", "A1 006", // Charizard
+                "A1 007", "A1 007", // Squirtle
+                "A1 008", "A1 008", // Wartortle
+                "A1 009", "A1 009", // Blastoise
+                "A1 010", "A1 010", // Caterpie
+            ];
+
+            let py_list = PyList::new_bound(py, &card_ids);
+            let deck_a = py_list.into_any().unbind();
+            let deck_b = deck_a.clone_ref(py);
+
+            let mut game_state = PyGameState::new(py, deck_a, deck_b, Some(42)).expect("Failed to create game");
+
+            // Initial state check
+            let state = game_state.get_state();
+            assert_eq!(state.turn_count(), 0);
+
+            // Step 1
+            // We need to know valid actions.
+            // Since we can't easily introspect actions from PyGameState directly without generate_possible_actions exposed or wrapped,
+            // we assume index 0 is valid for the start of the game (usually EndTurn or Place).
+
+            let (done, _won) = game_state.step(0).expect("Step failed");
+            assert!(!done);
+
+            // Reset
+            game_state.reset(py).expect("Reset failed");
+            let state = game_state.get_state();
+            assert_eq!(state.turn_count(), 0);
+        });
+    }
 }
