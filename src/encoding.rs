@@ -63,21 +63,21 @@ pub fn encode_action(action: &SimpleAction) -> Option<usize> {
             } else {
                 None
             }
-        },
+        }
         SimpleAction::Retreat(idx) => {
             if *idx < 4 {
                 Some(OFFSET_RETREAT + idx)
             } else {
                 None
             }
-        },
+        }
         SimpleAction::UseAbility { in_play_idx } => {
             if *in_play_idx < 4 {
                 Some(OFFSET_USE_ABILITY + in_play_idx)
             } else {
                 None
             }
-        },
+        }
         SimpleAction::Place(card, slot) => {
             if *slot < 4 {
                 let card_id = CardId::from_card_id(&card.get_id())?;
@@ -86,8 +86,12 @@ pub fn encode_action(action: &SimpleAction) -> Option<usize> {
             } else {
                 None
             }
-        },
-        SimpleAction::Evolve { evolution, in_play_idx, .. } => {
+        }
+        SimpleAction::Evolve {
+            evolution,
+            in_play_idx,
+            ..
+        } => {
             if *in_play_idx < 4 {
                 let card_id = CardId::from_card_id(&evolution.get_id())?;
                 let card_idx = card_id as usize;
@@ -95,12 +99,12 @@ pub fn encode_action(action: &SimpleAction) -> Option<usize> {
             } else {
                 None
             }
-        },
+        }
         SimpleAction::Play { trainer_card } => {
             let card_id = CardId::from_card_id(&trainer_card.id)?;
             let card_idx = card_id as usize;
             Some(get_offset_play() + card_idx)
-        },
+        }
         SimpleAction::Attach { attachments, .. } => {
             // Assume single attachment for now as atomic action
             if let Some((_, energy_type, slot)) = attachments.first() {
@@ -113,22 +117,25 @@ pub fn encode_action(action: &SimpleAction) -> Option<usize> {
             } else {
                 None
             }
-        },
-        SimpleAction::AttachTool { in_play_idx, tool_id } => {
-             // Map ToolId to index. ToolId is not EnumIter but derived from database or manually managed?
-             // src/tool_ids.rs is manual.
-             // I'll just hash it or use a manual mapping if small.
-             // Or use CardId?
-             // The action uses ToolId.
-             // I'll implement a simple mapping for known tools.
-             let tool_idx = tool_id_to_index(*tool_id);
-             if *in_play_idx < 4 {
-                 Some(get_offset_attach_tool() + tool_idx * 4 + in_play_idx)
-             } else {
-                 None
-             }
-        },
-        _ => None // Other actions not mapped yet
+        }
+        SimpleAction::AttachTool {
+            in_play_idx,
+            tool_id,
+        } => {
+            // Map ToolId to index. ToolId is not EnumIter but derived from database or manually managed?
+            // src/tool_ids.rs is manual.
+            // I'll just hash it or use a manual mapping if small.
+            // Or use CardId?
+            // The action uses ToolId.
+            // I'll implement a simple mapping for known tools.
+            let tool_idx = tool_id_to_index(*tool_id);
+            if *in_play_idx < 4 {
+                Some(get_offset_attach_tool() + tool_idx * 4 + in_play_idx)
+            } else {
+                None
+            }
+        }
+        _ => None, // Other actions not mapped yet
     }
 }
 
@@ -241,14 +248,18 @@ pub fn encode_observation(state: &State, player: usize) -> Vec<f32> {
     obs.push(state.turn_count as f32);
     obs.push(state.points[player] as f32);
     obs.push(state.points[1 - player] as f32);
-    obs.push(if state.current_player == player { 1.0 } else { 0.0 });
+    obs.push(if state.current_player == player {
+        1.0
+    } else {
+        0.0
+    });
 
     // Helper to encode a pokemon slot
     let encode_pokemon = |pokemon: Option<&PlayedCard>, obs: &mut Vec<f32>| {
         if let Some(p) = pokemon {
             // HP
             obs.push(p.remaining_hp as f32 / 300.0); // Normalize HP
-            // Energy
+                                                     // Energy
             let mut energies = vec![0.0; ENERGY_TYPES_COUNT];
             for e in &p.attached_energy {
                 energies[energy_type_to_index(*e)] += 1.0;
@@ -265,7 +276,7 @@ pub fn encode_observation(state: &State, player: usize) -> Vec<f32> {
             obs.push(if p.asleep { 1.0 } else { 0.0 });
             obs.push(if p.paralyzed { 1.0 } else { 0.0 });
             obs.push(if p.confused { 1.0 } else { 0.0 }); // If confused exists
-            // TODO: other status?
+                                                          // TODO: other status?
         } else {
             // Empty slot
             obs.push(0.0); // HP

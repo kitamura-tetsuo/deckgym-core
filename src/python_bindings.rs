@@ -1052,7 +1052,8 @@ mod tests {
             let deck_a = py_list.into_any().unbind();
             let deck_b = deck_a.clone_ref(py);
 
-            let mut game_state = PyGameState::new(py, deck_a, deck_b, Some(42)).expect("Failed to create game");
+            let mut game_state =
+                PyGameState::new(py, deck_a, deck_b, Some(42)).expect("Failed to create game");
 
             // Initial state check
             let state = game_state.get_state();

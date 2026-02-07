@@ -23,6 +23,10 @@ classifiers = [
 ]
 keywords = ["pokemon", "tcg", "card-game", "simulation", "ai"]
 dynamic = ["version"]
+dependencies = [
+    "gymnasium",
+    "open_spiel",
+]
 
 [project.urls]
 Homepage = "https://www.deckgym.com"
