@@ -270,6 +270,10 @@ fn tool_id_to_index(t: ToolId) -> usize {
 }
 
 pub fn encode_observation(state: &State, player: usize) -> Vec<f32> {
+    encode_state(state, player, false)
+}
+
+pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32> {
     let mut obs = Vec::new();
     let card_count = get_card_count();
 
@@ -282,6 +286,10 @@ pub fn encode_observation(state: &State, player: usize) -> Vec<f32> {
     } else {
         0.0
     });
+
+    // 2. Hand Counts (New)
+    obs.push(state.hands[player].len() as f32);
+    obs.push(state.hands[1 - player].len() as f32);
 
     // Helper to encode a pokemon slot
     let encode_pokemon = |pokemon: Option<&PlayedCard>, obs: &mut Vec<f32>| {
@@ -304,47 +312,54 @@ pub fn encode_observation(state: &State, player: usize) -> Vec<f32> {
             obs.push(if p.poisoned { 1.0 } else { 0.0 });
             obs.push(if p.asleep { 1.0 } else { 0.0 });
             obs.push(if p.paralyzed { 1.0 } else { 0.0 });
-            obs.push(if p.confused { 1.0 } else { 0.0 }); // If confused exists
-                                                          // TODO: other status?
+            obs.push(if p.confused { 1.0 } else { 0.0 });
+            obs.push(if p.burned { 1.0 } else { 0.0 });
         } else {
             // Empty slot
             obs.push(0.0); // HP
             obs.extend(vec![0.0; ENERGY_TYPES_COUNT]); // Energy
             obs.extend(vec![0.0; card_count]); // Card ID
-            obs.extend(vec![0.0; 4]); // Status
+            obs.extend(vec![0.0; 5]); // Status (poisoned, asleep, paralyzed, confused, burned)
         }
     };
 
-    // 2. My Active
+    // 3. My Active
     encode_pokemon(state.in_play_pokemon[player][0].as_ref(), &mut obs);
 
-    // 3. My Bench
+    // 4. My Bench
     for i in 1..4 {
         encode_pokemon(state.in_play_pokemon[player][i].as_ref(), &mut obs);
     }
 
-    // 4. Opponent Active
+    // 5. Opponent Active
     encode_pokemon(state.in_play_pokemon[1 - player][0].as_ref(), &mut obs);
 
-    // 5. Opponent Bench
+    // 6. Opponent Bench
     for i in 1..4 {
         encode_pokemon(state.in_play_pokemon[1 - player][i].as_ref(), &mut obs);
     }
 
-    // 6. Hand (Bag of Cards)
+    // 7. Hand (Bag of Cards)
     let mut hand_vec = vec![0.0; card_count];
-    for card in &state.hands[player] {
-        if let Some(cid) = CardId::from_card_id(&card.get_id()) {
-            hand_vec[cid as usize] += 1.0;
+    if !public_only {
+        for card in &state.hands[player] {
+            if let Some(cid) = CardId::from_card_id(&card.get_id()) {
+                hand_vec[cid as usize] += 1.0;
+            }
         }
     }
     obs.extend(hand_vec);
 
-    // 7. Deck Count
+    // 8. Opponent Hand (Bag of Cards) - Always masked (zeros)
+    // This slot is reserved for symmetry or potential future use, ensuring fixed schema.
+    let opp_hand_vec = vec![0.0; card_count];
+    obs.extend(opp_hand_vec);
+
+    // 9. Deck Count
     obs.push(state.decks[player].cards.len() as f32);
     obs.push(state.decks[1 - player].cards.len() as f32); // Is opponent deck size visible? Yes.
 
-    // 8. Discard (Bag of Cards)
+    // 10. Discard (Bag of Cards)
     let mut discard_vec = vec![0.0; card_count];
     for card in &state.discard_piles[player] {
         if let Some(cid) = CardId::from_card_id(&card.get_id()) {
@@ -353,7 +368,7 @@ pub fn encode_observation(state: &State, player: usize) -> Vec<f32> {
     }
     obs.extend(discard_vec);
 
-    // Opponent discard?
+    // 11. Opponent discard
     let mut op_discard_vec = vec![0.0; card_count];
     for card in &state.discard_piles[1 - player] {
         if let Some(cid) = CardId::from_card_id(&card.get_id()) {
