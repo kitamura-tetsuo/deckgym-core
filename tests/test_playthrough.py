@@ -27,7 +27,7 @@ def test_random_playthrough():
     ]
 
     try:
-        game = DeckGymGame(deck_a=card_ids, deck_b=card_ids, seed=42)
+        game = DeckGymGame({"deck_id_1": card_ids, "deck_id_2": card_ids, "seed": 42})
     except Exception as e:
         pytest.fail(f"Failed to initialize DeckGymGame: {e}")
 

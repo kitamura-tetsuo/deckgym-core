@@ -1,5 +1,6 @@
 import pyspiel
 import deckgym
+from .state import DeckGymState
 
 _GAME_TYPE = pyspiel.GameType(
     short_name="deckgym_ptcgp",
@@ -50,7 +51,8 @@ class DeckGymGame(pyspiel.Game):
         super().__init__(_GAME_TYPE, _GAME_INFO, params)
 
     def new_initial_state(self):
-        raise NotImplementedError("State logic will be in the next prompt")
+        # Pass deck configurations stored in self.params or self.deck_ids
+        return DeckGymState(self, self._deck_id_1, self._deck_id_2, self._seed)
 
     def num_distinct_actions(self):
         return deckgym.PyGameState.get_action_space_size()
