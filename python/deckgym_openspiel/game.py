@@ -17,8 +17,8 @@ _GAME_TYPE = pyspiel.GameType(
     provides_observation_string=True,
     provides_observation_tensor=True,
     parameter_specification={
-        "deck_id_1": "default_deck",
-        "deck_id_2": "default_deck",
+        "deck_id_1": "deckgym-core/example_decks/mewtwoex.txt",
+        "deck_id_2": "deckgym-core/example_decks/mewtwoex.txt",
         "seed": 0
     }
 )
