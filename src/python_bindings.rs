@@ -811,6 +811,67 @@ impl PyGameState {
         }
     }
 
+    pub fn get_action_probabilities(&self, action_id: usize) -> PyResult<Vec<f64>> {
+        let (_actor, actions) = generate_possible_actions(self.game.state());
+
+        // Find action
+        let mut found_action = None;
+        for action in &actions {
+            if let Some(enc_id) = encoding::encode_action(&action.action) {
+                if enc_id == action_id {
+                    found_action = Some(action);
+                    break;
+                }
+            }
+        }
+
+        let action = found_action.ok_or_else(|| {
+            PyValueError::new_err(format!("Action ID {} is not currently legal", action_id))
+        })?;
+
+        let (probs, _) = crate::actions::forecast_action(self.game.state(), action);
+        Ok(probs)
+    }
+
+    pub fn apply_action_outcome(
+        &mut self,
+        action_id: usize,
+        outcome_idx: usize,
+    ) -> PyResult<(bool, bool)> {
+        let (_actor, actions) = generate_possible_actions(self.game.state());
+
+        // Find action
+        let mut found_action = None;
+        for action in &actions {
+            if let Some(enc_id) = encoding::encode_action(&action.action) {
+                if enc_id == action_id {
+                    found_action = Some(action.clone());
+                    break;
+                }
+            }
+        }
+
+        let action = found_action.ok_or_else(|| {
+            PyValueError::new_err(format!("Action ID {} is not currently legal", action_id))
+        })?;
+
+        self.game.apply_action_with_outcome(&action, outcome_idx);
+
+        let done = self.game.is_game_over();
+        let won = if done {
+            if let Some(GameOutcome::Win(winner)) = self.game.state().winner {
+                // Return true if Player 0 won (usually the agent)
+                winner == 0
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        Ok((done, won))
+    }
+
     pub fn reset(&mut self, py: Python) -> PyResult<()> {
         let deck_a_deck = parse_deck(py, &self.deck_a_source)?;
         let deck_b_deck = parse_deck(py, &self.deck_b_source)?;
@@ -818,6 +879,31 @@ impl PyGameState {
         let game_seed = self.seed.unwrap_or_else(rand::random::<u64>);
         self.game = create_game_from_decks(deck_a_deck, deck_b_deck, game_seed);
         Ok(())
+    }
+
+    pub fn clone(&self, py: Python) -> PyResult<Self> {
+        let state = self.game.get_state_clone();
+
+        let deck_a_deck = parse_deck(py, &self.deck_a_source)?;
+        let deck_b_deck = parse_deck(py, &self.deck_b_source)?;
+
+        let player_a = Box::new(crate::players::RandomPlayer {
+            deck: deck_a_deck.clone(),
+        });
+        let player_b = Box::new(crate::players::RandomPlayer {
+            deck: deck_b_deck.clone(),
+        });
+        let players: Vec<Box<dyn crate::players::Player>> = vec![player_a, player_b];
+
+        let seed = self.seed.unwrap_or(0);
+        let game = Game::from_state(state, players, seed);
+
+        Ok(PyGameState {
+            game,
+            deck_a_source: self.deck_a_source.clone_ref(py),
+            deck_b_source: self.deck_b_source.clone_ref(py),
+            seed: self.seed,
+        })
     }
 
     pub fn get_state(&self) -> PyState {
@@ -1052,7 +1138,8 @@ mod tests {
             let deck_a = py_list.into_any().unbind();
             let deck_b = deck_a.clone_ref(py);
 
-            let mut game_state = PyGameState::new(py, deck_a, deck_b, Some(42)).expect("Failed to create game");
+            let mut game_state =
+                PyGameState::new(py, deck_a, deck_b, Some(42)).expect("Failed to create game");
 
             // Initial state check
             let state = game_state.get_state();

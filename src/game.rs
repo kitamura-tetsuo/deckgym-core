@@ -131,6 +131,16 @@ impl<'a> Game<'a> {
         self.state = state;
     }
 
+    pub fn apply_action_with_outcome(&mut self, action: &Action, outcome_idx: usize) {
+        use crate::actions::forecast_action;
+        let (_, mut mutations) = forecast_action(&self.state, action);
+        if outcome_idx >= mutations.len() {
+            panic!("Invalid outcome index");
+        }
+        let mutation = mutations.remove(outcome_idx);
+        mutation(&mut self.rng, &mut self.state, action);
+    }
+
     fn print_turn_header(&self, actor: usize, player: &dyn Player, color: &str) {
         if self.debug {
             debug!(
