@@ -106,6 +106,23 @@ class DeckGymState(pyspiel.State):
         else:
             return [0.0, 0.0]
 
+    def _get_player_id(self, player):
+        if player is None:
+            player = self.current_player()
+
+        # CHANCE and TERMINAL are negative in OpenSpiel
+        if player < 0:
+             return self._game_state.get_state().current_player
+        return player
+
+    def information_state_tensor(self, player=None):
+        p = self._get_player_id(player)
+        return self._game_state.encode_observation(player_id=p, public_only=False)
+
+    def observation_tensor(self, player=None):
+        p = self._get_player_id(player)
+        return self._game_state.encode_observation(player_id=p, public_only=True)
+
     def __str__(self):
         return self._game_state.get_state().debug_string()
 

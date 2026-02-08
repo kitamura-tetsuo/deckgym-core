@@ -84,5 +84,8 @@ class DeckGymGame(pyspiel.Game):
             parameter_specification={}
         )
 
+    def information_state_tensor_shape(self):
+        return self._obs_shape
+
     def observation_tensor_shape(self):
         return self._obs_shape

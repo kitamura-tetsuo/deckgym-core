@@ -912,8 +912,15 @@ impl PyGameState {
         }
     }
 
-    pub fn encode_observation(&self) -> Vec<f32> {
-        encoding::encode_observation(self.game.state(), self.game.state().current_player)
+    #[pyo3(signature = (player_id=None, public_only=None))]
+    pub fn encode_observation(
+        &self,
+        player_id: Option<usize>,
+        public_only: Option<bool>,
+    ) -> Vec<f32> {
+        let public_only = public_only.unwrap_or(false);
+        let player = player_id.unwrap_or_else(|| self.game.state().current_player);
+        encoding::encode_state(self.game.state(), player, public_only)
     }
 
     pub fn legal_actions(&self) -> Vec<usize> {
