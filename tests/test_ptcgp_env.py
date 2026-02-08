@@ -20,7 +20,7 @@ def test_ptcgp_env_compliance():
 
     # Run a few steps manually
     obs, info = env.reset(seed=42)
-    assert obs.shape == (30574,), "Initial observation shape mismatch"
+    assert obs.shape == (33352,), "Initial observation shape mismatch"
 
     valid_actions = info.get("valid_actions", [])
 

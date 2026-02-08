@@ -1,135 +1,121 @@
 import pyspiel
-from deckgym import PyGameState, GameOutcome
+import deckgym
+import numpy as np
 
 class DeckGymState(pyspiel.State):
-    def __init__(self, game, deckgym_game_state: PyGameState, chance_probabilities=None, pending_action_id=None):
+    def __init__(self, game, deck_id_1, deck_id_2, seed=None, rust_game=None):
         super().__init__(game)
-        self._game_state = deckgym_game_state
-        self._chance_probabilities = chance_probabilities
-        self._pending_action_id = pending_action_id
+        self._deck_id_1 = deck_id_1
+        self._deck_id_2 = deck_id_2
+        self._seed = seed
+        self._pending_stochastic_action = None
 
-        # Check initial terminal status
-        state = self._game_state.get_state()
-        self._game_over = state.is_game_over()
-        self._winner = state.winner.winner if state.winner else None
-        self._is_tie = state.winner.is_tie if state.winner else False
+        if rust_game:
+            self.rust_game = rust_game
+        else:
+            self.rust_game = deckgym.PyGameState(deck_id_1, deck_id_2, seed)
 
     def current_player(self):
-        if self._game_over:
-            return pyspiel.PlayerId.TERMINAL
-        if self._chance_probabilities is not None:
+        if self._pending_stochastic_action is not None:
             return pyspiel.PlayerId.CHANCE
-        return self._game_state.get_state().current_player
+        if self.rust_game.get_state().is_game_over():
+            return pyspiel.PlayerId.TERMINAL
+        return self.rust_game.get_state().current_player
 
-    def legal_actions(self, player=None):
-        if self._game_over:
-            return []
-
-        # Handle chance player
-        if self._chance_probabilities is not None:
-            if player == pyspiel.PlayerId.CHANCE or player is None:
-                return list(range(len(self._chance_probabilities)))
-            return []
-
-        # Handle regular players
-        current_player = self.current_player()
-        if player is not None and player != current_player:
-            return []
-
-        return self._game_state.legal_actions()
+    def _legal_actions(self, player):
+        if self.is_chance_node():
+            # Return outcome indices 0..N-1
+            # We stored (action_id, probs) in _pending_stochastic_action
+            probs = self._pending_stochastic_action[1]
+            return list(range(len(probs)))
+        else:
+            return self.rust_game.legal_actions()
 
     def chance_outcomes(self):
-        """Returns the possible chance outcomes and their probabilities."""
-        if self._chance_probabilities is None:
-            return []
-        return list(enumerate(self._chance_probabilities))
+        if self.is_chance_node():
+            probs = self._pending_stochastic_action[1]
+            return list(enumerate(probs))
+        return []
 
-    def apply_action(self, action):
-        if self._chance_probabilities is not None:
-            # Resolving chance node
-            outcome_idx = action
-            if not (0 <= outcome_idx < len(self._chance_probabilities)):
-                raise ValueError(f"Invalid chance outcome index: {outcome_idx}")
-
-            # Apply the specific outcome
-            done, won = self._game_state.apply_action_outcome(self._pending_action_id, outcome_idx)
-
-            # Clear chance state
-            self._chance_probabilities = None
-            self._pending_action_id = None
-
-            # Update terminal status
-            self._game_over = done
-            state = self._game_state.get_state()
-            self._winner = state.winner.winner if state.winner else None
-            self._is_tie = state.winner.is_tie if state.winner else False
-
+    def _apply_action(self, action_id):
+        if self.is_chance_node():
+            # Apply the outcome
+            outcome_idx = action_id
+            real_action_id, _ = self._pending_stochastic_action
+            self.rust_game.apply_action_outcome(real_action_id, outcome_idx)
+            self._pending_stochastic_action = None
         else:
-            # Regular player action
-            # Predict outcomes first
-            probs = self._game_state.get_action_probabilities(action)
-
+            # Player action
+            # Check if this action is stochastic
+            probs = self.rust_game.get_action_probabilities(action_id)
             if len(probs) > 1:
-                # Transition to chance node
-                self._chance_probabilities = probs
-                self._pending_action_id = action
+                # Stochastic action: transition to chance node
+                self._pending_stochastic_action = (action_id, probs)
             else:
-                # Deterministic action (or single outcome stochastic action that resolves immediately)
-                # Apply outcome 0
-                done, won = self._game_state.apply_action_outcome(action, 0)
+                # Deterministic action
+                self.rust_game.step_with_id(action_id)
 
-                # Update terminal status
-                self._game_over = done
-                state = self._game_state.get_state()
-                self._winner = state.winner.winner if state.winner else None
-                self._is_tie = state.winner.is_tie if state.winner else False
-
-    def action_to_string(self, player, action):
+    def _action_to_string(self, player, action_id):
         if player == pyspiel.PlayerId.CHANCE:
-            return f"Outcome {action}"
-        return PyGameState.action_name(action)
+            return f"outcome_{action_id}"
+        else:
+            return deckgym.PyGameState.action_name(action_id)
 
     def is_terminal(self):
-        return self._game_over
+        return self.rust_game.get_state().is_game_over()
 
     def returns(self):
-        if not self._game_over:
-            return [0.0, 0.0]
+        if self.is_terminal():
+            outcome = self.rust_game.get_state().winner
+            if outcome is None:
+                return [0.0, 0.0]
 
-        if self._is_tie:
-            return [0.0, 0.0]
+            if outcome.is_tie:
+                return [0.0, 0.0]
 
-        if self._winner == 0:
-            return [1.0, -1.0]
-        elif self._winner == 1:
-            return [-1.0, 1.0]
-        else:
-            return [0.0, 0.0]
+            if outcome.winner is not None:
+                if outcome.winner == 0:
+                    return [1.0, -1.0]
+                else:
+                    return [-1.0, 1.0]
+        return [0.0, 0.0]
 
-    def _get_player_id(self, player):
-        if player is None:
-            player = self.current_player()
+    def observation_tensor(self, player):
+        # Flatten the list returned by encode_observation
+        return self.rust_game.encode_observation(player_id=player, public_only=True)
 
-        # CHANCE and TERMINAL are negative in OpenSpiel
-        if player < 0:
-             return self._game_state.get_state().current_player
-        return player
+    def information_state_tensor(self, player):
+        return self.rust_game.encode_observation(player_id=player, public_only=False)
 
-    def information_state_tensor(self, player=None):
-        p = self._get_player_id(player)
-        return self._game_state.encode_observation(player_id=p, public_only=False)
+    def observation_string(self, player):
+        return self.rust_game.get_state().debug_string()
 
-    def observation_tensor(self, player=None):
-        p = self._get_player_id(player)
-        return self._game_state.encode_observation(player_id=p, public_only=True)
-
-    def __str__(self):
-        return self._game_state.get_state().debug_string()
+    def information_state_string(self, player):
+        return self.rust_game.get_state().debug_string()
 
     def clone(self):
-         return DeckGymState(
-             self.get_game(),
-             self._game_state.clone(),
-             self._chance_probabilities[:] if self._chance_probabilities else None,
-             self._pending_action_id
-         )
+        # We need to clone the rust game state
+        # PyGameState has a clone() method that takes a Python context implicitly via pyo3
+        # But in Python we just call .clone()
+        # Wait, the signature in rust is `pub fn clone(&self, py: Python) -> PyResult<Self>`
+        # In Python, `py` is handled automatically.
+        # However, `PyGameState.clone` returns a new `PyGameState`.
+        new_rust_game = self.rust_game.clone()
+        new_state = DeckGymState(
+            self.get_game(),
+            self._deck_id_1,
+            self._deck_id_2,
+            self._seed,
+            rust_game=new_rust_game
+        )
+        new_state._pending_stochastic_action = self._pending_stochastic_action
+        return new_state
+
+    def __str__(self):
+        return str(self.rust_game.get_state())
+
+    def __repr__(self):
+        return repr(self.rust_game.get_state())
+
+    def __deepcopy__(self, memo):
+        return self.clone()

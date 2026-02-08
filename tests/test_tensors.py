@@ -20,7 +20,7 @@ CARD_IDS = [
 
 @pytest.fixture
 def game():
-    return DeckGymGame(CARD_IDS, CARD_IDS, seed=42)
+    return DeckGymGame({"deck_id_1": CARD_IDS, "deck_id_2": CARD_IDS, "seed": 42})
 
 def test_tensor_shapes(game):
     state = game.new_initial_state()
