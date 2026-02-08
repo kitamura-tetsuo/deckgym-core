@@ -1,52 +1,56 @@
 import pyspiel
 import deckgym
-from deckgym_openspiel.state import DeckGymState
+
+_GAME_TYPE = pyspiel.GameType(
+    short_name="deckgym_ptcgp",
+    long_name="DeckGym Pokemon TCG Pocket",
+    dynamics=pyspiel.GameType.Dynamics.SEQUENTIAL,
+    chance_mode=pyspiel.GameType.ChanceMode.EXPLICIT_STOCHASTIC,
+    information=pyspiel.GameType.Information.IMPERFECT_INFORMATION,
+    utility=pyspiel.GameType.Utility.ZERO_SUM,
+    reward_model=pyspiel.GameType.RewardModel.TERMINAL,
+    max_num_players=2,
+    min_num_players=2,
+    provides_information_state_string=True,
+    provides_information_state_tensor=True,
+    provides_observation_string=True,
+    provides_observation_tensor=True,
+    parameter_specification={
+        "deck_id_1": "default_deck",
+        "deck_id_2": "default_deck",
+        "seed": 0
+    }
+)
+
+_GAME_INFO = pyspiel.GameInfo(
+    deckgym.PyGameState.get_action_space_size(),
+    100,
+    2,
+    -1.0,
+    1.0,
+    0.0,
+    1000
+)
 
 class DeckGymGame(pyspiel.Game):
-    def __init__(self, deck_a: str | list[str], deck_b: str | list[str], seed=None):
-        self._deck_a = deck_a
-        self._deck_b = deck_b
-        self._seed = seed
+    def __init__(self, params=None):
+        if params is None:
+            params = {}
 
-        # Cache tensor shape
+        self._deck_id_1 = params.get("deck_id_1", "default_deck")
+        self._deck_id_2 = params.get("deck_id_2", "default_deck")
+        self._seed = params.get("seed", None)
+
         try:
-            dummy_state = deckgym.PyGameState(self._deck_a, self._deck_b, self._seed)
+            dummy_state = deckgym.PyGameState(self._deck_id_1, self._deck_id_2, self._seed)
             self._obs_shape = [len(dummy_state.encode_observation())]
         except Exception:
-             # Fallback or error if decks are invalid
              self._obs_shape = [0]
 
-        game_type = pyspiel.GameType(
-            short_name="deckgym",
-            long_name="DeckGym Pokémon TCG Pocket",
-            dynamics=pyspiel.GameType.Dynamics.SEQUENTIAL,
-            chance_mode=pyspiel.GameType.ChanceMode.EXPLICIT_STOCHASTIC,
-            information=pyspiel.GameType.Information.IMPERFECT_INFORMATION,
-            utility=pyspiel.GameType.Utility.ZERO_SUM,
-            reward_model=pyspiel.GameType.RewardModel.TERMINAL,
-            max_num_players=2,
-            min_num_players=2,
-            provides_information_state_string=True,
-            provides_information_state_tensor=True,
-            provides_observation_string=True,
-            provides_observation_tensor=True,
-            parameter_specification={}
-        )
-
-        game_info = pyspiel.GameInfo(
-            deckgym.PyGameState.get_action_space_size(),
-            100,
-            2,
-            -1.0,
-            1.0,
-            0.0,
-            1000
-        )
-        super().__init__(game_type, game_info, {})
+        super().__init__(_GAME_TYPE, _GAME_INFO, params)
 
     def new_initial_state(self):
-        game_state = deckgym.PyGameState(self._deck_a, self._deck_b, self._seed)
-        return DeckGymState(self, game_state)
+        raise NotImplementedError("State logic will be in the next prompt")
 
     def num_distinct_actions(self):
         return deckgym.PyGameState.get_action_space_size()
@@ -66,26 +70,10 @@ class DeckGymGame(pyspiel.Game):
     def utility_sum(self):
         return 0.0
 
-    def get_type(self):
-        return pyspiel.GameType(
-            short_name="deckgym",
-            long_name="DeckGym Pokémon TCG Pocket",
-            dynamics=pyspiel.GameType.Dynamics.SEQUENTIAL,
-            chance_mode=pyspiel.GameType.ChanceMode.EXPLICIT_STOCHASTIC,
-            information=pyspiel.GameType.Information.IMPERFECT_INFORMATION,
-            utility=pyspiel.GameType.Utility.ZERO_SUM,
-            reward_model=pyspiel.GameType.RewardModel.TERMINAL,
-            max_num_players=2,
-            min_num_players=2,
-            provides_information_state_string=True,
-            provides_information_state_tensor=True,
-            provides_observation_string=True,
-            provides_observation_tensor=True,
-            parameter_specification={}
-        )
-
     def information_state_tensor_shape(self):
         return self._obs_shape
 
     def observation_tensor_shape(self):
         return self._obs_shape
+
+pyspiel.register_game(_GAME_TYPE, DeckGymGame)
