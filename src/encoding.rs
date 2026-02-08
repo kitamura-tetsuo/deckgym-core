@@ -171,42 +171,42 @@ pub fn action_name(id: usize) -> String {
     if id == OFFSET_END_TURN {
         return "EndTurn".to_string();
     }
-    if id >= OFFSET_ATTACK && id < OFFSET_RETREAT {
+    if (OFFSET_ATTACK..OFFSET_RETREAT).contains(&id) {
         return format!("Attack({})", id - OFFSET_ATTACK);
     }
-    if id >= OFFSET_RETREAT && id < OFFSET_USE_ABILITY {
+    if (OFFSET_RETREAT..OFFSET_USE_ABILITY).contains(&id) {
         return format!("Retreat({})", id - OFFSET_RETREAT);
     }
-    if id >= OFFSET_USE_ABILITY && id < OFFSET_PLACE {
+    if (OFFSET_USE_ABILITY..OFFSET_PLACE).contains(&id) {
         return format!("UseAbility({})", id - OFFSET_USE_ABILITY);
     }
-    if id >= OFFSET_PLACE && id < offset_evolve {
+    if (OFFSET_PLACE..offset_evolve).contains(&id) {
         let val = id - OFFSET_PLACE;
         let slot = val % 4;
         let card_idx = val / 4;
         let card_id = card_index_to_id(card_idx);
         return format!("Place({:?}, {})", card_id, slot);
     }
-    if id >= offset_evolve && id < offset_play {
+    if (offset_evolve..offset_play).contains(&id) {
         let val = id - offset_evolve;
         let slot = val % 4;
         let card_idx = val / 4;
         let card_id = card_index_to_id(card_idx);
         return format!("Evolve({:?}, {})", card_id, slot);
     }
-    if id >= offset_play && id < offset_attach {
+    if (offset_play..offset_attach).contains(&id) {
         let card_idx = id - offset_play;
         let card_id = card_index_to_id(card_idx);
         return format!("Play({:?})", card_id);
     }
-    if id >= offset_attach && id < offset_attach_tool {
+    if (offset_attach..offset_attach_tool).contains(&id) {
         let val = id - offset_attach;
         let slot = val % 4;
         let energy_idx = val / 4;
         let energy_type = index_to_energy_type(energy_idx);
         return format!("Attach({:?}, {})", energy_type, slot);
     }
-    if id >= offset_attach_tool && id < offset_activate {
+    if (offset_attach_tool..offset_activate).contains(&id) {
         let val = id - offset_attach_tool;
         let slot = val % 4;
         let tool_idx = val / 4;
@@ -215,7 +215,7 @@ pub fn action_name(id: usize) -> String {
             .expect("Tool index should be valid");
         return format!("AttachTool({:?}, {})", tool_id, slot);
     }
-    if id >= offset_activate && id < offset_draw_card {
+    if (offset_activate..offset_draw_card).contains(&id) {
         let val = id - offset_activate;
         return format!("Activate({})", val);
     }
