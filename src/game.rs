@@ -13,12 +13,11 @@ use crate::{
     State,
 };
 
-// It has a lifetime to allow it to borrow the event handler mutably for the duration of the game
 pub struct Game<'a> {
     seed: u64,
     rng: StdRng,
     id: Uuid,
-    players: Vec<Box<dyn Player>>,
+    players: Vec<Box<dyn Player + Send>>,
 
     state: State,
 
@@ -27,7 +26,7 @@ pub struct Game<'a> {
 }
 
 impl<'a> Game<'a> {
-    pub fn from_state(state: State, players: Vec<Box<dyn Player>>, seed: u64) -> Self {
+    pub fn from_state(state: State, players: Vec<Box<dyn Player + Send>>, seed: u64) -> Self {
         let rng = StdRng::seed_from_u64(seed);
         Game {
             seed,
@@ -40,7 +39,7 @@ impl<'a> Game<'a> {
         }
     }
 
-    pub fn new(players: Vec<Box<dyn Player>>, seed: u64) -> Self {
+    pub fn new(players: Vec<Box<dyn Player + Send>>, seed: u64) -> Self {
         let mut rng = StdRng::seed_from_u64(seed);
         let deck_a = players[0].get_deck();
         let deck_b = players[1].get_deck();
@@ -58,7 +57,7 @@ impl<'a> Game<'a> {
 
     pub fn new_with_event_handlers(
         game_id: Uuid,
-        players: Vec<Box<dyn Player>>,
+        players: Vec<Box<dyn Player + Send>>,
         seed: u64,
         event_handler: &'a mut CompositeSimulationEventHandler,
     ) -> Self {
@@ -200,7 +199,7 @@ mod tests {
         let (deck_a, deck_b) = load_test_decks();
         let player_a = Box::new(AttachAttackPlayer { deck: deck_a });
         let player_b = Box::new(EndTurnPlayer { deck: deck_b });
-        let players: Vec<Box<dyn Player>> = vec![player_a, player_b];
+        let players: Vec<Box<dyn Player + Send>> = vec![player_a, player_b];
         let mut game = Game::new(players, 3);
 
         // Play initial setup phase
@@ -240,7 +239,7 @@ mod tests {
         let (deck_a, deck_b) = load_test_decks();
         let player_a = Box::new(EndTurnPlayer { deck: deck_a });
         let player_b = Box::new(AttachAttackPlayer { deck: deck_b });
-        let players: Vec<Box<dyn Player>> = vec![player_a, player_b];
+        let players: Vec<Box<dyn Player + Send>> = vec![player_a, player_b];
         let mut game = Game::new(players, 4); // EndTurnPlayer starts
 
         // Turn 1, EE ends. Turn 2, AA attaches and attacks. Exeggcute should have 30 HP.

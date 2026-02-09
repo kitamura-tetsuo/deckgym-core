@@ -1,8 +1,10 @@
 use pyo3::exceptions::{PyIOError, PyIndexError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::PyModule;
+use pyo3::types::{PyList, PyModule};
 use pyo3::wrap_pyfunction;
+use rand::distributions::{Distribution, WeightedIndex};
 use rand::{RngCore, SeedableRng};
+use rayon::prelude::*;
 use std::collections::HashMap;
 
 use crate::{
@@ -912,7 +914,7 @@ impl PyGameState {
         let player_b = Box::new(crate::players::RandomPlayer {
             deck: deck_b_deck.clone(),
         });
-        let players: Vec<Box<dyn crate::players::Player>> = vec![player_a, player_b];
+        let players: Vec<Box<dyn crate::players::Player + Send>> = vec![player_a, player_b];
 
         let seed = self.seed.unwrap_or(0);
         let game = Game::from_state(state, players, seed);
@@ -994,7 +996,7 @@ fn create_game_from_decks(deck_a: Deck, deck_b: Deck, seed: u64) -> Game<'static
     let player_b = Box::new(RandomPlayer {
         deck: deck_b.clone(),
     });
-    let players: Vec<Box<dyn Player>> = vec![player_a, player_b];
+    let players: Vec<Box<dyn Player + Send>> = vec![player_a, player_b];
     Game::new(players, seed)
 }
 
@@ -1142,6 +1144,8 @@ pub struct PyBatchedSimulator {
     batch_size: usize,
     deck_a_path: String,
     deck_b_path: String,
+    deck_a: Deck,
+    deck_b: Deck,
     win_reward: f32,
     point_reward: f32,
     damage_reward: f32,
@@ -1158,16 +1162,25 @@ impl PyBatchedSimulator {
         win_reward: f32,
         point_reward: f32,
         damage_reward: f32,
-    ) -> Self {
-        PyBatchedSimulator {
+    ) -> PyResult<Self> {
+        let deck_a = Deck::from_file(&deck_a_path).map_err(|e| {
+            PyIOError::new_err(format!("Failed to load deck A: {}", e))
+        })?;
+        let deck_b = Deck::from_file(&deck_b_path).map_err(|e| {
+            PyIOError::new_err(format!("Failed to load deck B: {}", e))
+        })?;
+
+        Ok(PyBatchedSimulator {
             games: Vec::with_capacity(batch_size),
             batch_size,
             deck_a_path,
             deck_b_path,
+            deck_a,
+            deck_b,
             win_reward,
             point_reward,
             damage_reward,
-        }
+        })
     }
 
     #[pyo3(signature = (seed=None))]
@@ -1180,14 +1193,7 @@ impl PyBatchedSimulator {
         };
 
         for _ in 0..self.batch_size {
-            let deck_a = Deck::from_file(&self.deck_a_path).map_err(|e| {
-                PyIOError::new_err(format!("Failed to load deck A: {}", e))
-            })?;
-            let deck_b = Deck::from_file(&self.deck_b_path).map_err(|e| {
-                PyIOError::new_err(format!("Failed to load deck B: {}", e))
-            })?;
-
-            let players = create_players(deck_a, deck_b, vec![PlayerCode::H, PlayerCode::H]);
+            let players = create_players(self.deck_a.clone(), self.deck_b.clone(), vec![PlayerCode::H, PlayerCode::H]);
             let game_seed = rng.next_u64();
             self.games.push(Game::new(players, game_seed));
         }
@@ -1337,6 +1343,200 @@ impl PyBatchedSimulator {
             batched_legal_actions.push(action_ids);
         }
         Ok(batched_legal_actions)
+    }
+
+    #[pyo3(name = "sample_and_step")]
+    pub fn sample_and_step(
+        &mut self,
+        py: Python<'_>,
+        logits: Vec<Vec<f32>>,
+    ) -> PyResult<(
+        Vec<Vec<f32>>,
+        Vec<f32>,
+        Vec<bool>,
+        Vec<bool>,
+        Vec<bool>,
+        Vec<usize>,
+        Vec<f32>,
+    )> {
+        if logits.len() != self.batch_size {
+            return Err(PyValueError::new_err(format!(
+                "Logits length {} does not match batch size {}",
+                logits.len(),
+                self.batch_size
+            )));
+        }
+
+        let win_reward = self.win_reward;
+        let point_reward = self.point_reward;
+        let damage_reward = self.damage_reward;
+
+        let results: Vec<_> = py.allow_threads(|| {
+            self.games
+                .par_iter_mut()
+                .zip(logits.par_iter())
+                .map(|(game, logit_row)| {
+                    if game.is_game_over() {
+                        return (
+                            encoding::encode_observation(game.state(), game.state().current_player),
+                            0.0,
+                            true,
+                            false,
+                            false,
+                            0,
+                            0.0,
+                        );
+                    }
+
+                    let state_before = game.state().clone();
+                    let points_before = state_before.points;
+
+                    // 1. Generate legal actions
+                    let (actor, legal_actions) = generate_possible_actions(game.state());
+
+                    // 2. Filter logits and Sample
+                    let mut sampled_action_id = 0;
+                    let mut sampled_action: Option<Action> = None;
+                    let mut sampled_log_prob = 0.0;
+
+                    let mut filtered_probs = Vec::with_capacity(legal_actions.len());
+                    let mut filtered_action_ids = Vec::with_capacity(legal_actions.len());
+
+                    for action in &legal_actions {
+                        if let Some(id) = encoding::encode_action(&action.action) {
+                            if id < logit_row.len() {
+                                filtered_probs.push(logit_row[id]);
+                                filtered_action_ids.push(id);
+                            }
+                        }
+                    }
+
+                    if !filtered_probs.is_empty() {
+                        // Softmax over filtered logits
+                        let max_logit = filtered_probs
+                            .iter()
+                            .fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+                        let mut sum_exp = 0.0;
+                        for p in filtered_probs.iter_mut() {
+                            *p = (*p - max_logit).exp();
+                            sum_exp += *p;
+                        }
+                        for p in filtered_probs.iter_mut() {
+                            *p /= sum_exp;
+                        }
+
+                        let dist = WeightedIndex::new(&filtered_probs).unwrap();
+                        let idx = dist.sample(&mut rand::thread_rng());
+
+                        sampled_action_id = filtered_action_ids[idx];
+                        sampled_log_prob = (filtered_probs[idx] + 1e-10).ln();
+
+                        // Find the Action object again
+                        for action in &legal_actions {
+                            if let Some(id) = encoding::encode_action(&action.action) {
+                                if id == sampled_action_id {
+                                    sampled_action = Some(action.clone());
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if let Some(action) = sampled_action {
+                        let actor_before = action.actor;
+                        game.apply_action(&action);
+                        let done = game.is_game_over();
+
+                        let mut r = 0.0;
+                        if done {
+                            if let Some(GameOutcome::Win(winner)) = game.state().winner {
+                                if winner == actor_before {
+                                    r += win_reward;
+                                } else {
+                                    r -= win_reward;
+                                }
+                            }
+                        }
+
+                        if point_reward != 0.0 {
+                            let points_after = game.state().points;
+                            let opponent = (actor_before + 1) % 2;
+                            let point_diff = (points_after[actor_before] as f32
+                                - points_before[actor_before] as f32)
+                                - (points_after[opponent] as f32 - points_before[opponent] as f32);
+                            r += point_reward * point_diff;
+                        }
+
+                        if damage_reward != 0.0 {
+                            if let SimpleAction::Attack(_) = action.action {
+                                let opponent = (actor_before + 1) % 2;
+                                let mut total_damage = 0.0;
+                                for pos in 0..4 {
+                                    if let (Some(before), Some(after)) = (
+                                        &state_before.in_play_pokemon[opponent][pos],
+                                        &game.state().in_play_pokemon[opponent][pos],
+                                    ) {
+                                        if (before.remaining_hp as i32) > (after.remaining_hp as i32)
+                                        {
+                                            total_damage +=
+                                                (before.remaining_hp - after.remaining_hp) as f32;
+                                        }
+                                    } else if let Some(before) =
+                                        &state_before.in_play_pokemon[opponent][pos]
+                                    {
+                                        total_damage += before.remaining_hp as f32;
+                                    }
+                                }
+                                r += damage_reward * total_damage;
+                            }
+                        }
+
+                        (
+                            encoding::encode_observation(game.state(), game.state().current_player),
+                            r,
+                            done,
+                            false,
+                            true,
+                            sampled_action_id,
+                            sampled_log_prob,
+                        )
+                    } else {
+                        // This shouldn't happen if game logic matches
+                        (
+                            encoding::encode_observation(game.state(), game.state().current_player),
+                            0.0,
+                            game.is_game_over(),
+                            false,
+                            false,
+                            0,
+                            0.0,
+                        )
+                    }
+                })
+                .collect()
+        });
+
+        let mut next_obs = Vec::with_capacity(self.batch_size);
+        let mut rewards = Vec::with_capacity(self.batch_size);
+        let mut dones = Vec::with_capacity(self.batch_size);
+        let mut timed_out = Vec::with_capacity(self.batch_size);
+        let mut valid_mask = Vec::with_capacity(self.batch_size);
+        let mut actions = Vec::with_capacity(self.batch_size);
+        let mut log_probs = Vec::with_capacity(self.batch_size);
+
+        for (o, r, d, t, v, a, lp) in results {
+            next_obs.push(o);
+            rewards.push(r);
+            dones.push(d);
+            timed_out.push(t);
+            valid_mask.push(v);
+            actions.push(a);
+            log_probs.push(lp);
+        }
+
+        Ok((
+            next_obs, rewards, dones, timed_out, valid_mask, actions, log_probs,
+        ))
     }
 }
 

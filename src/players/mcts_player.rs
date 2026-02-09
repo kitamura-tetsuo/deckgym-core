@@ -131,7 +131,7 @@ impl MctsNode {
 
     // Simulate a random playout from the current state, and return 1 or -1 or 0
     fn simulate(&self, rng: &mut StdRng, investigator: usize) -> f64 {
-        let random_players: Vec<Box<dyn Player>> = vec![
+        let random_players: Vec<Box<dyn Player + Send>> = vec![
             Box::new(RandomPlayer {
                 deck: Deck::default(),
             }),

@@ -24,7 +24,7 @@ use crate::{actions::Action, Deck, State};
 use rand::rngs::StdRng;
 use std::fmt::Debug;
 
-pub trait Player: Debug {
+pub trait Player: Debug + Send {
     fn get_deck(&self) -> Deck;
     fn decision_fn(
         &mut self,
@@ -100,13 +100,13 @@ pub fn create_players(
     deck_a: Deck,
     deck_b: Deck,
     players: Vec<PlayerCode>,
-) -> Vec<Box<dyn Player>> {
-    let player_a: Box<dyn Player> = get_player(deck_a.clone(), &players[0]);
-    let player_b: Box<dyn Player> = get_player(deck_b.clone(), &players[1]);
+) -> Vec<Box<dyn Player + Send>> {
+    let player_a: Box<dyn Player + Send> = get_player(deck_a.clone(), &players[0]);
+    let player_b: Box<dyn Player + Send> = get_player(deck_b.clone(), &players[1]);
     vec![player_a, player_b]
 }
 
-fn get_player(deck: Deck, player: &PlayerCode) -> Box<dyn Player> {
+fn get_player(deck: Deck, player: &PlayerCode) -> Box<dyn Player + Send> {
     match player {
         PlayerCode::AA => Box::new(AttachAttackPlayer { deck }),
         PlayerCode::ET => Box::new(EndTurnPlayer { deck }),
