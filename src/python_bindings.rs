@@ -1187,7 +1187,7 @@ impl PyBatchedSimulator {
         seed: Option<u64>, 
         deck_ids_1: Option<Vec<String>>, 
         deck_ids_2: Option<Vec<String>>
-    ) -> PyResult<Vec<Vec<f32>>> {
+    ) -> PyResult<(Vec<Vec<f32>>, Vec<usize>)> {
         self.games.clear();
         let mut rng = if let Some(s) = seed {
             rand::rngs::StdRng::seed_from_u64(s)
@@ -1248,7 +1248,11 @@ impl PyBatchedSimulator {
             .map(|game| encoding::encode_observation(game.state(), game.state().current_player))
             .collect();
         
-        Ok(obs)
+        let current_players: Vec<usize> = self.games.iter()
+            .map(|game| game.state().current_player)
+            .collect();
+        
+        Ok((obs, current_players))
     }
 
     // Returns (obs, rewards, dones, timed_out, valid_mask)
@@ -1404,6 +1408,7 @@ impl PyBatchedSimulator {
         Vec<bool>,
         Vec<usize>,
         Vec<f32>,
+        Vec<usize>,
     )> {
         if logits.len() != self.batch_size {
             return Err(PyValueError::new_err(format!(
@@ -1431,6 +1436,7 @@ impl PyBatchedSimulator {
                             false,
                             0,
                             0.0,
+                            game.state().current_player,
                         );
                     }
 
@@ -1545,6 +1551,7 @@ impl PyBatchedSimulator {
                             true,
                             sampled_action_id,
                             sampled_log_prob,
+                            game.state().current_player,
                         )
                     } else {
                         // This shouldn't happen if game logic matches
@@ -1556,6 +1563,7 @@ impl PyBatchedSimulator {
                             false,
                             0,
                             0.0,
+                            game.state().current_player,
                         )
                     }
                 })
@@ -1569,8 +1577,9 @@ impl PyBatchedSimulator {
         let mut valid_mask = Vec::with_capacity(self.batch_size);
         let mut actions = Vec::with_capacity(self.batch_size);
         let mut log_probs = Vec::with_capacity(self.batch_size);
+        let mut current_players = Vec::with_capacity(self.batch_size);
 
-        for (o, r, d, t, v, a, lp) in results {
+        for (o, r, d, t, v, a, lp, cp) in results {
             next_obs.push(o);
             rewards.push(r);
             dones.push(d);
@@ -1578,10 +1587,11 @@ impl PyBatchedSimulator {
             valid_mask.push(v);
             actions.push(a);
             log_probs.push(lp);
+            current_players.push(cp);
         }
 
         Ok((
-            next_obs, rewards, dones, timed_out, valid_mask, actions, log_probs,
+            next_obs, rewards, dones, timed_out, valid_mask, actions, log_probs, current_players,
         ))
     }
 }
