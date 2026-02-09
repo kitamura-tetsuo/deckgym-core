@@ -1138,7 +1138,7 @@ pub fn deckgym(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 /// Batched Simulator for RL
-#[pyclass(unsendable)]
+#[pyclass]
 pub struct PyBatchedSimulator {
     games: Vec<Game<'static>>,
     batch_size: usize,
