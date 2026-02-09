@@ -2,16 +2,15 @@ use pyo3::exceptions::{PyIOError, PyIndexError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::wrap_pyfunction;
+use rand::{RngCore, SeedableRng};
 use std::collections::HashMap;
 
 use crate::{
-    deck::Deck,
-    encoding,
-    game::Game,
-    generate_possible_actions,
+    deck::Deck, encoding, game::Game, generate_possible_actions,
     models::{Ability, Attack, Card, EnergyType, PlayedCard},
-    players::{create_players, fill_code_array, parse_player_code, RandomPlayer},
+    players::{create_players, fill_code_array, parse_player_code, PlayerCode, RandomPlayer},
     state::{GameOutcome, State},
+    actions::Action,
 };
 
 /// Python wrapper for EnergyType
@@ -1132,8 +1131,168 @@ pub fn deckgym(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PySimulationResults>()?;
     m.add_function(wrap_pyfunction!(py_simulate, m)?)?;
     m.add_function(wrap_pyfunction!(get_player_types, m)?)?;
+    m.add_class::<PyBatchedSimulator>()?;
     Ok(())
 }
+
+/// Batched Simulator for RL
+#[pyclass(unsendable)]
+pub struct PyBatchedSimulator {
+    games: Vec<Game<'static>>,
+    batch_size: usize,
+    deck_a_path: String,
+    deck_b_path: String,
+}
+
+#[pymethods]
+impl PyBatchedSimulator {
+    #[new]
+    pub fn new(deck_a_path: String, deck_b_path: String, batch_size: usize) -> Self {
+        PyBatchedSimulator {
+            games: Vec::with_capacity(batch_size),
+            batch_size,
+            deck_a_path,
+            deck_b_path,
+        }
+    }
+
+    #[pyo3(signature = (seed=None))]
+    pub fn reset(&mut self, seed: Option<u64>) -> PyResult<Vec<Vec<f32>>> {
+        self.games.clear();
+        let mut rng = if let Some(s) = seed {
+            rand::rngs::StdRng::seed_from_u64(s)
+        } else {
+            rand::rngs::StdRng::from_entropy()
+        };
+
+        for _ in 0..self.batch_size {
+            let deck_a = Deck::from_file(&self.deck_a_path).map_err(|e| {
+                PyIOError::new_err(format!("Failed to load deck A: {}", e))
+            })?;
+            let deck_b = Deck::from_file(&self.deck_b_path).map_err(|e| {
+                PyIOError::new_err(format!("Failed to load deck B: {}", e))
+            })?;
+
+            let players = create_players(deck_a, deck_b, vec![PlayerCode::H, PlayerCode::H]);
+            let game_seed = rng.next_u64();
+            self.games.push(Game::new(players, game_seed));
+        }
+
+        let obs: Vec<Vec<f32>> = self.games.iter()
+            .map(|game| encoding::encode_observation(game.state(), game.state().current_player))
+            .collect();
+        
+        Ok(obs)
+    }
+
+    // Returns (obs, rewards, dones, timed_out, valid_mask)
+    // valid_mask indicates if the environment was active and stepped successfully
+    pub fn step(&mut self, actions: Vec<usize>) -> PyResult<(Vec<Vec<f32>>, Vec<f32>, Vec<bool>, Vec<bool>, Vec<bool>)> {
+        if actions.len() != self.batch_size {
+             return Err(PyValueError::new_err(format!(
+                "Actions length {} does not match batch size {}",
+                actions.len(),
+                self.batch_size
+            )));
+        }
+
+        let mut obs_batch = Vec::with_capacity(self.batch_size);
+        let mut rew_batch = Vec::with_capacity(self.batch_size);
+        let mut done_batch = Vec::with_capacity(self.batch_size);
+        let mut timed_out_batch = Vec::with_capacity(self.batch_size); // Not used currently
+        let mut valid_batch = Vec::with_capacity(self.batch_size); // True if stepped
+
+        for (i, &action_id) in actions.iter().enumerate() {
+            let game = &mut self.games[i];
+
+            if game.is_game_over() {
+                // Game already over
+                obs_batch.push(encoding::encode_observation(game.state(), game.state().current_player));
+                rew_batch.push(0.0);
+                done_batch.push(true);
+                timed_out_batch.push(false);
+                valid_batch.push(false); // active=False
+                continue;
+            }
+            
+            // 1. Generate legal actions
+            let (_actor, legal_actions) = generate_possible_actions(game.state());
+            
+            // 2. Decode/Find Action
+            let mut found_action: Option<Action> = None;
+            for action in &legal_actions {
+                if let Some(enc_id) = encoding::encode_action(&action.action) {
+                    if enc_id == action_id {
+                        found_action = Some(action.clone());
+                        break;
+                    }
+                }
+            }
+
+            if let Some(action) = found_action {
+                
+                let actor_before = action.actor; // Should match _actor
+
+                // 3. Apply Action
+                game.apply_action(&action);
+                
+                // 4. Check status
+                let done = game.is_game_over();
+                
+                // 5. Reward
+                // Check simple win/loss reward
+                let mut r = 0.0;
+                if done {
+                    if let Some(GameOutcome::Win(winner)) = game.state().winner {
+                         if winner == actor_before {
+                             r = 1.0; // Win
+                         } else {
+                             r = -1.0; // Loss
+                         }
+                    } else if let Some(GameOutcome::Tie) = game.state().winner {
+                        r = 0.0; 
+                    }
+                }
+
+                obs_batch.push(encoding::encode_observation(game.state(), game.state().current_player));
+                rew_batch.push(r);
+                done_batch.push(done);
+                timed_out_batch.push(false);
+                valid_batch.push(true);
+
+            } else {
+                 return Err(PyValueError::new_err(format!(
+                    "Action ID {} is not legal for game {}",
+                    action_id, i
+                )));
+            }
+        }
+
+        Ok((obs_batch, rew_batch, done_batch, timed_out_batch, valid_batch))
+    }
+
+    pub fn get_legal_actions(&self) -> PyResult<Vec<Vec<usize>>> {
+        let mut batched_legal_actions = Vec::with_capacity(self.batch_size);
+
+        for game in &self.games {
+            if game.is_game_over() {
+                batched_legal_actions.push(Vec::new());
+                continue;
+            }
+
+            let (_, actions) = generate_possible_actions(game.state());
+            let mut action_ids = Vec::with_capacity(actions.len());
+            for action in actions {
+                if let Some(id) = encoding::encode_action(&action.action) {
+                    action_ids.push(id);
+                }
+            }
+            batched_legal_actions.push(action_ids);
+        }
+        Ok(batched_legal_actions)
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
