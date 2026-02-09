@@ -1142,13 +1142,10 @@ pub fn deckgym(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
 pub struct PyBatchedSimulator {
     games: Vec<Game<'static>>,
     batch_size: usize,
-    deck_a_path: String,
-    deck_b_path: String,
-    deck_a: Deck,
-    deck_b: Deck,
     win_reward: f32,
     point_reward: f32,
     damage_reward: f32,
+    deck_cache: HashMap<String, Deck>,
 }
 
 #[pymethods]
@@ -1163,28 +1160,34 @@ impl PyBatchedSimulator {
         point_reward: f32,
         damage_reward: f32,
     ) -> PyResult<Self> {
+        let mut deck_cache = HashMap::new();
         let deck_a = Deck::from_file(&deck_a_path).map_err(|e| {
             PyIOError::new_err(format!("Failed to load deck A: {}", e))
         })?;
         let deck_b = Deck::from_file(&deck_b_path).map_err(|e| {
             PyIOError::new_err(format!("Failed to load deck B: {}", e))
         })?;
+        
+        deck_cache.insert(deck_a_path, deck_a);
+        deck_cache.insert(deck_b_path, deck_b);
 
         Ok(PyBatchedSimulator {
             games: Vec::with_capacity(batch_size),
             batch_size,
-            deck_a_path,
-            deck_b_path,
-            deck_a,
-            deck_b,
             win_reward,
             point_reward,
             damage_reward,
+            deck_cache,
         })
     }
 
-    #[pyo3(signature = (seed=None))]
-    pub fn reset(&mut self, seed: Option<u64>) -> PyResult<Vec<Vec<f32>>> {
+    #[pyo3(signature = (seed=None, deck_ids_1=None, deck_ids_2=None))]
+    pub fn reset(
+        &mut self, 
+        seed: Option<u64>, 
+        deck_ids_1: Option<Vec<String>>, 
+        deck_ids_2: Option<Vec<String>>
+    ) -> PyResult<Vec<Vec<f32>>> {
         self.games.clear();
         let mut rng = if let Some(s) = seed {
             rand::rngs::StdRng::seed_from_u64(s)
@@ -1192,8 +1195,47 @@ impl PyBatchedSimulator {
             rand::rngs::StdRng::from_entropy()
         };
 
-        for _ in 0..self.batch_size {
-            let players = create_players(self.deck_a.clone(), self.deck_b.clone(), vec![PlayerCode::H, PlayerCode::H]);
+        // Get default decks from cache if not specified
+        let cached_paths: Vec<String> = self.deck_cache.keys().cloned().collect();
+        if deck_ids_1.is_none() || deck_ids_2.is_none() {
+            if cached_paths.len() < 2 {
+                 return Err(PyValueError::new_err("Not enough decks in cache to reset without explicit deck_ids"));
+            }
+        }
+
+        for i in 0..self.batch_size {
+            let deck_1_path = if let Some(ref ids) = deck_ids_1 {
+                &ids[i]
+            } else {
+                &cached_paths[0]
+            };
+            let deck_2_path = if let Some(ref ids) = deck_ids_2 {
+                &ids[i]
+            } else {
+                &cached_paths[1]
+            };
+
+            let deck_1 = if let Some(d) = self.deck_cache.get(deck_1_path) {
+                d.clone()
+            } else {
+                let d = Deck::from_file(deck_1_path).map_err(|e| {
+                    PyIOError::new_err(format!("Failed to load deck: {}", e))
+                })?;
+                self.deck_cache.insert(deck_1_path.to_string(), d.clone());
+                d
+            };
+
+            let deck_2 = if let Some(d) = self.deck_cache.get(deck_2_path) {
+                d.clone()
+            } else {
+                let d = Deck::from_file(deck_2_path).map_err(|e| {
+                    PyIOError::new_err(format!("Failed to load deck: {}", e))
+                })?;
+                self.deck_cache.insert(deck_2_path.to_string(), d.clone());
+                d
+            };
+
+            let players = create_players(deck_1, deck_2, vec![PlayerCode::H, PlayerCode::H]);
             let game_seed = rng.next_u64();
             self.games.push(Game::new(players, game_seed));
         }
