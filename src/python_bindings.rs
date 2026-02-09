@@ -1235,7 +1235,11 @@ impl PyBatchedSimulator {
                 d
             };
 
-            let players = create_players(deck_1, deck_2, vec![PlayerCode::H, PlayerCode::H]);
+            let players = if rng.next_u32() % 2 == 0 {
+                create_players(deck_1, deck_2, vec![PlayerCode::H, PlayerCode::H])
+            } else {
+                create_players(deck_2, deck_1, vec![PlayerCode::H, PlayerCode::H])
+            };
             let game_seed = rng.next_u64();
             self.games.push(Game::new(players, game_seed));
         }
