@@ -12,6 +12,7 @@ from .deckgym import (
     PySimulationResults as SimulationResults,
     py_simulate as simulate,
     get_player_types,
+    PyBatchedSimulator,
 )
 from gymnasium.envs.registration import register
 from .envs.ptcgp_env import PTCGPEnv
@@ -30,6 +31,7 @@ __all__ = [
     "SimulationResults",
     "simulate",
     "get_player_types",
+    "PyBatchedSimulator",
     "PTCGPEnv",
 ]
 

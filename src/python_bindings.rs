@@ -10,7 +10,7 @@ use crate::{
     models::{Ability, Attack, Card, EnergyType, PlayedCard},
     players::{create_players, fill_code_array, parse_player_code, PlayerCode, RandomPlayer},
     state::{GameOutcome, State},
-    actions::Action,
+    actions::{Action, SimpleAction},
 };
 
 /// Python wrapper for EnergyType
@@ -1142,17 +1142,31 @@ pub struct PyBatchedSimulator {
     batch_size: usize,
     deck_a_path: String,
     deck_b_path: String,
+    win_reward: f32,
+    point_reward: f32,
+    damage_reward: f32,
 }
 
 #[pymethods]
 impl PyBatchedSimulator {
     #[new]
-    pub fn new(deck_a_path: String, deck_b_path: String, batch_size: usize) -> Self {
+    #[pyo3(signature = (deck_a_path, deck_b_path, batch_size, win_reward=1.0, point_reward=0.0, damage_reward=0.0))]
+    pub fn new(
+        deck_a_path: String,
+        deck_b_path: String,
+        batch_size: usize,
+        win_reward: f32,
+        point_reward: f32,
+        damage_reward: f32,
+    ) -> Self {
         PyBatchedSimulator {
             games: Vec::with_capacity(batch_size),
             batch_size,
             deck_a_path,
             deck_b_path,
+            win_reward,
+            point_reward,
+            damage_reward,
         }
     }
 
@@ -1205,6 +1219,9 @@ impl PyBatchedSimulator {
         for (i, &action_id) in actions.iter().enumerate() {
             let game = &mut self.games[i];
 
+            let state_before = game.state().clone();
+            let points_before = state_before.points;
+
             if game.is_game_over() {
                 // Game already over
                 obs_batch.push(encoding::encode_observation(game.state(), game.state().current_player));
@@ -1240,17 +1257,47 @@ impl PyBatchedSimulator {
                 let done = game.is_game_over();
                 
                 // 5. Reward
-                // Check simple win/loss reward
                 let mut r = 0.0;
+
+                // Win/Loss reward
                 if done {
                     if let Some(GameOutcome::Win(winner)) = game.state().winner {
-                         if winner == actor_before {
-                             r = 1.0; // Win
-                         } else {
-                             r = -1.0; // Loss
-                         }
-                    } else if let Some(GameOutcome::Tie) = game.state().winner {
-                        r = 0.0; 
+                        if winner == actor_before {
+                            r += self.win_reward; // Win
+                        } else {
+                            r -= self.win_reward; // Loss
+                        }
+                    }
+                }
+
+                // Point reward
+                if self.point_reward != 0.0 {
+                    let points_after = game.state().points;
+                    let opponent = (actor_before + 1) % 2;
+                    let point_diff = (points_after[actor_before] as f32 - points_before[actor_before] as f32)
+                        - (points_after[opponent] as f32 - points_before[opponent] as f32);
+                    r += self.point_reward * point_diff;
+                }
+
+                // Damage reward
+                if self.damage_reward != 0.0 {
+                    if let SimpleAction::Attack(_) = action.action {
+                        let opponent = (actor_before + 1) % 2;
+                        let mut total_damage = 0.0;
+                        for pos in 0..4 {
+                            if let (Some(before), Some(after)) = (
+                                &state_before.in_play_pokemon[opponent][pos],
+                                &game.state().in_play_pokemon[opponent][pos],
+                            ) {
+                                if (before.remaining_hp as i32) > (after.remaining_hp as i32) {
+                                    total_damage += (before.remaining_hp - after.remaining_hp) as f32;
+                                }
+                            } else if let Some(before) = &state_before.in_play_pokemon[opponent][pos] {
+                                // KO happened
+                                total_damage += before.remaining_hp as f32;
+                            }
+                        }
+                        r += self.damage_reward * total_damage;
                     }
                 }
 
