@@ -87,12 +87,30 @@ impl State {
 
         // Shuffle the decks before starting the game and have players
         //  draw 5 cards each to start
-        for deck in &mut state.decks {
-            deck.shuffle(true, rng);
-        }
-        for _ in 0..5 {
-            state.maybe_draw_card(0);
-            state.maybe_draw_card(1);
+        // Initial draw and mulligan logic
+        for player in 0..2 {
+            state.decks[player].shuffle(true, rng);
+            loop {
+                // Draw 5 cards
+                for _ in 0..5 {
+                    state.maybe_draw_card(player);
+                }
+
+                // Check for Basic Pokemon
+                let has_basic = state.hands[player].iter().any(|c| c.is_basic());
+                if has_basic {
+                    break;
+                }
+
+                // Mulligan: Shuffle hand back into deck
+                debug!("Player {} Mulligan: No Basic Pokemon", player + 1);
+                let hand_len = state.hands[player].len();
+                for _ in 0..hand_len {
+                    let card = state.hands[player].pop().unwrap();
+                    state.decks[player].cards.push(card);
+                }
+                state.decks[player].shuffle(true, rng);
+            }
         }
         // Flip a coin to determine the starting player
         state.current_player = rng.gen_range(0..2);

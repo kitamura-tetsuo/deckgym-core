@@ -802,13 +802,18 @@ impl PyGameState {
         }
 
         if let Some(idx) = found_idx {
-            self.step(idx)
-        } else {
-            Err(PyValueError::new_err(format!(
-                "Action ID {} is not currently legal",
-                action_id
-            )))
+            return self.step(idx);
         }
+
+        let available_ids: Vec<usize> = actions
+            .iter()
+            .filter_map(|a| encoding::encode_action(&a.action))
+            .collect();
+
+        Err(PyValueError::new_err(format!(
+            "Action ID {} is not currently legal. Available: {:?}",
+            action_id, available_ids
+        )))
     }
 
     pub fn get_action_probabilities(&self, action_id: usize) -> PyResult<Vec<f64>> {
@@ -826,7 +831,14 @@ impl PyGameState {
         }
 
         let action = found_action.ok_or_else(|| {
-            PyValueError::new_err(format!("Action ID {} is not currently legal", action_id))
+            let available_ids: Vec<usize> = actions
+                .iter()
+                .filter_map(|a| encoding::encode_action(&a.action))
+                .collect();
+            PyValueError::new_err(format!(
+                "Action ID {} is not currently legal. Available: {:?}",
+                action_id, available_ids
+            ))
         })?;
 
         let (probs, _) = crate::actions::forecast_action(self.game.state(), action);
