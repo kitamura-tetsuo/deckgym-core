@@ -716,7 +716,7 @@ fn iono_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
     }
 }
 
-pub fn may_effect(acting_player: usize, state: &State) -> (Probabilities, Mutations) {
+    pub fn may_effect(acting_player: usize, state: &State) -> (Probabilities, Mutations) {
     // Put 2 random Pokémon from your deck into your hand.
     // For each Pokémon you put into your hand in this way, choose a Pokémon to shuffle from your hand into your deck.
     let deck_pokemon: Vec<Card> = state.iter_deck_pokemon(acting_player).cloned().collect();
@@ -731,33 +731,11 @@ pub fn may_effect(acting_player: usize, state: &State) -> (Probabilities, Mutati
     // For drawing 2 Pokemon, we need to generate all possible pairs
     // Each outcome draws 2 different Pokemon (or fewer if not enough in deck)
     let num_to_draw = min(2, num_pokemon);
-    if num_to_draw == 1 {
-        // Only 1 Pokemon in deck - simple case
-        let probabilities = vec![1.0];
-        let mut outcomes: Mutations = vec![];
-        outcomes.push(Box::new(move |_rng, state, action| {
-            let pokemon = state
-                .iter_deck_pokemon(action.actor)
-                .next()
-                .cloned()
-                .expect("Pokemon should be in deck");
-            state.transfer_card_from_deck_to_hand(action.actor, &pokemon);
-            // Queue shuffling that Pokemon back into deck
-            state.move_generation_stack.push((
-                action.actor,
-                vec![SimpleAction::ShufflePokemonIntoDeck {
-                    hand_pokemon: vec![pokemon],
-                }],
-            ));
-        }));
-        return (probabilities, outcomes);
-    }
-
-    // Drawing 2 Pokemon - generate all possible unordered combinations
     let draw_combinations = generate_combinations(&deck_pokemon, num_to_draw);
     let num_outcomes = draw_combinations.len();
     let probabilities = vec![1.0 / (num_outcomes as f64); num_outcomes];
     let mut outcomes: Mutations = vec![];
+    
     for combo in draw_combinations {
         outcomes.push(Box::new(move |_rng, state, action| {
             // Transfer each Pokemon from the combination to hand
@@ -765,22 +743,33 @@ pub fn may_effect(acting_player: usize, state: &State) -> (Probabilities, Mutati
                 state.transfer_card_from_deck_to_hand(action.actor, pokemon);
             }
 
-            // Generate all possible 2-combinations of Pokemon in hand to shuffle back
-            let hand_pokemon: Vec<Card> = state.iter_hand_pokemon(action.actor).cloned().collect();
-            let combinations = generate_combinations(&hand_pokemon, num_to_draw);
-            let shuffle_choices: Vec<SimpleAction> = combinations
-                .into_iter()
-                .map(|combo| SimpleAction::ShufflePokemonIntoDeck {
-                    hand_pokemon: combo,
-                })
-                .collect();
-            state
-                .move_generation_stack
-                .push((action.actor, shuffle_choices));
+            // Queue the first shuffle decision (we need to shuffle num_to_draw times)
+            generate_shuffle_choices(action.actor, state, num_to_draw);
         }));
     }
 
     (probabilities, outcomes)
+}
+
+fn generate_shuffle_choices(player: usize, state: &mut State, amount: usize) {
+    let hand_pokemon: Vec<Card> = state.iter_hand_pokemon(player).cloned().collect();
+    
+    // If no pokemon in hand (shouldn't happen given we just drew), nothing to shuffle
+    if hand_pokemon.is_empty() {
+        return;
+    }
+
+    let shuffle_choices: Vec<SimpleAction> = hand_pokemon
+        .into_iter()
+        .map(|card| SimpleAction::ShufflePokemonIntoDeck {
+            hand_pokemon: card,
+            amount,
+        })
+        .collect();
+    
+    state
+        .move_generation_stack
+        .push((player, shuffle_choices));
 }
 
 fn lisia_effect(acting_player: usize, state: &State) -> (Probabilities, Mutations) {

@@ -15,75 +15,117 @@ pub fn get_card_count() -> usize {
     CardId::iter().len()
 }
 
-pub fn get_action_space_size() -> usize {
-    let card_count = get_card_count();
+/// Defines each action slot with its name and size.
+/// The order here determines the offset order in the action space.
+/// When adding a new action type, add it to this list with the correct size.
+#[derive(Debug, Clone, Copy)]
+struct ActionSlot {
+    name: &'static str,
+    size: usize,
+}
+
+/// Generates the complete action slot registry.
+/// This is the single source of truth for action space layout.
+fn get_action_slots() -> Vec<ActionSlot> {
+    let card_count = CardId::iter().len();
     let tool_count = ToolId::iter().len();
-    // EndTurn: 1
-    // Attack: 3
-    // Retreat: 4
-    // UseAbility: 4
-    // Place: card_count * 4
-    // Evolve: card_count * 4
-    // Play: card_count
-    // Attach: 10 * 4
-    // AttachTool: tool_count * 4
-    // Activate: 4
-    // DrawCard: 1
-
-    12 + card_count * 9 + 40 + tool_count * 4 + 4 + 1
+    
+    vec![
+        // Basic turn actions
+        ActionSlot { name: "EndTurn", size: 1 },
+        ActionSlot { name: "Attack", size: 3 },
+        ActionSlot { name: "Retreat", size: 4 },
+        ActionSlot { name: "UseAbility", size: 4 },
+        ActionSlot { name: "Place", size: card_count * 4 },
+        ActionSlot { name: "Evolve", size: card_count * 4 },
+        ActionSlot { name: "Play", size: card_count },
+        ActionSlot { name: "Attach", size: ENERGY_TYPES_COUNT * 4 },
+        ActionSlot { name: "AttachTool", size: tool_count * 4 },
+        ActionSlot { name: "Activate", size: 4 },
+        ActionSlot { name: "DrawCard", size: 1 },
+        // Extended actions
+        ActionSlot { name: "MoveEnergy", size: 3 * ENERGY_TYPES_COUNT }, // Bench(1..3) -> Active(0), 10 energy types
+        ActionSlot { name: "CommunicatePokemon", size: card_count },
+        ActionSlot { name: "ShufflePokemonIntoDeck", size: card_count },
+        ActionSlot { name: "ShuffleOpponentSupporter", size: card_count },
+        ActionSlot { name: "DiscardOpponentSupporter", size: card_count },
+        ActionSlot { name: "DiscardOwnCard", size: card_count },
+        ActionSlot { name: "AttachFromDiscard", size: 4 },
+        ActionSlot { name: "ApplyEeveeBagDamageBoost", size: 1 },
+        ActionSlot { name: "HealAllEeveeEvolutions", size: 1 },
+        ActionSlot { name: "DiscardFossil", size: 4 },
+        ActionSlot { name: "Heal", size: 4 },
+        ActionSlot { name: "MoveAllDamage", size: 16 }, // 4 * 4 (from x to y)
+        ActionSlot { name: "ApplyDamage", size: 1 }, // Deterministic action, single slot
+        ActionSlot { name: "Noop", size: 1 },
+    ]
 }
 
-// Action Offsets
-const OFFSET_END_TURN: usize = 0;
-const OFFSET_ATTACK: usize = 1;
-const OFFSET_RETREAT: usize = 4;
-const OFFSET_USE_ABILITY: usize = 8;
-const OFFSET_PLACE: usize = 12;
-
-fn get_offset_evolve() -> usize {
-    OFFSET_PLACE + get_card_count() * 4
+/// Returns the offset for a given action slot name.
+/// Panics if the slot name is not found.
+fn get_slot_offset(slot_name: &str) -> usize {
+    let slots = get_action_slots();
+    let mut offset = 0;
+    for slot in &slots {
+        if slot.name == slot_name {
+            return offset;
+        }
+        offset += slot.size;
+    }
+    panic!("Unknown action slot: {}", slot_name);
 }
 
-fn get_offset_play() -> usize {
-    get_offset_evolve() + get_card_count() * 4
+pub fn get_action_space_size() -> usize {
+    get_action_slots().iter().map(|s| s.size).sum()
 }
 
-fn get_offset_attach() -> usize {
-    get_offset_play() + get_card_count()
-}
-
-fn get_offset_attach_tool() -> usize {
-    get_offset_attach() + ENERGY_TYPES_COUNT * 4
-}
-
-fn get_offset_activate() -> usize {
-    get_offset_attach_tool() + ToolId::iter().len() * 4
-}
-
-fn get_offset_draw_card() -> usize {
-    get_offset_activate() + 4
-}
+// Action Offsets - now derived from the ActionSlot registry
+fn get_offset_end_turn() -> usize { get_slot_offset("EndTurn") }
+fn get_offset_attack() -> usize { get_slot_offset("Attack") }
+fn get_offset_retreat() -> usize { get_slot_offset("Retreat") }
+fn get_offset_use_ability() -> usize { get_slot_offset("UseAbility") }
+fn get_offset_place() -> usize { get_slot_offset("Place") }
+fn get_offset_evolve() -> usize { get_slot_offset("Evolve") }
+fn get_offset_play() -> usize { get_slot_offset("Play") }
+fn get_offset_attach() -> usize { get_slot_offset("Attach") }
+fn get_offset_attach_tool() -> usize { get_slot_offset("AttachTool") }
+fn get_offset_activate() -> usize { get_slot_offset("Activate") }
+fn get_offset_draw_card() -> usize { get_slot_offset("DrawCard") }
+fn get_offset_move_energy() -> usize { get_slot_offset("MoveEnergy") }
+fn get_offset_communicate() -> usize { get_slot_offset("CommunicatePokemon") }
+fn get_offset_shuffle_into_deck() -> usize { get_slot_offset("ShufflePokemonIntoDeck") }
+fn get_offset_shuffle_opponent_supporter() -> usize { get_slot_offset("ShuffleOpponentSupporter") }
+fn get_offset_discard_opponent_supporter() -> usize { get_slot_offset("DiscardOpponentSupporter") }
+fn get_offset_discard_own_card() -> usize { get_slot_offset("DiscardOwnCard") }
+fn get_offset_attach_from_discard() -> usize { get_slot_offset("AttachFromDiscard") }
+fn get_offset_eevee_boost() -> usize { get_slot_offset("ApplyEeveeBagDamageBoost") }
+fn get_offset_heal_eevee() -> usize { get_slot_offset("HealAllEeveeEvolutions") }
+fn get_offset_discard_fossil() -> usize { get_slot_offset("DiscardFossil") }
+fn get_offset_heal() -> usize { get_slot_offset("Heal") }
+fn get_offset_move_damage() -> usize { get_slot_offset("MoveAllDamage") }
+fn get_offset_apply_damage() -> usize { get_slot_offset("ApplyDamage") }
+fn get_offset_noop() -> usize { get_slot_offset("Noop") }
 
 pub fn encode_action(action: &SimpleAction) -> Option<usize> {
     match action {
-        SimpleAction::EndTurn => Some(OFFSET_END_TURN),
+        SimpleAction::EndTurn => Some(get_offset_end_turn()),
         SimpleAction::Attack(idx) => {
             if *idx < 3 {
-                Some(OFFSET_ATTACK + idx)
+                Some(get_offset_attack() + idx)
             } else {
                 None
             }
         }
         SimpleAction::Retreat(idx) => {
             if *idx < 4 {
-                Some(OFFSET_RETREAT + idx)
+                Some(get_offset_retreat() + idx)
             } else {
                 None
             }
         }
         SimpleAction::UseAbility { in_play_idx } => {
             if *in_play_idx < 4 {
-                Some(OFFSET_USE_ABILITY + in_play_idx)
+                Some(get_offset_use_ability() + in_play_idx)
             } else {
                 None
             }
@@ -92,7 +134,7 @@ pub fn encode_action(action: &SimpleAction) -> Option<usize> {
             if *slot < 4 {
                 let card_id = CardId::from_card_id(&card.get_id())?;
                 let card_idx = card_id as usize;
-                Some(OFFSET_PLACE + card_idx * 4 + slot)
+                Some(get_offset_place() + card_idx * 4 + slot)
             } else {
                 None
             }
@@ -116,7 +158,6 @@ pub fn encode_action(action: &SimpleAction) -> Option<usize> {
             Some(get_offset_play() + card_idx)
         }
         SimpleAction::Attach { attachments, .. } => {
-            // Assume single attachment for now as atomic action
             if let Some((_, energy_type, slot)) = attachments.first() {
                 if *slot < 4 {
                     let energy_idx = energy_type_to_index(*energy_type);
@@ -132,12 +173,6 @@ pub fn encode_action(action: &SimpleAction) -> Option<usize> {
             in_play_idx,
             tool_id,
         } => {
-            // Map ToolId to index. ToolId is not EnumIter but derived from database or manually managed?
-            // src/tool_ids.rs is manual.
-            // I'll just hash it or use a manual mapping if small.
-            // Or use CardId?
-            // The action uses ToolId.
-            // I'll implement a simple mapping for known tools.
             let tool_idx = tool_id_to_index(*tool_id);
             if *in_play_idx < 4 {
                 Some(get_offset_attach_tool() + tool_idx * 4 + in_play_idx)
@@ -156,32 +191,121 @@ pub fn encode_action(action: &SimpleAction) -> Option<usize> {
             }
         }
         SimpleAction::DrawCard { .. } => Some(get_offset_draw_card()),
-        _ => None, // Other actions not mapped yet
+        
+        // New Mappings
+        SimpleAction::MoveEnergy { from_in_play_idx, to_in_play_idx, energy_type, .. } => {
+             // Supports Bench(1..3) -> any, or just Active?
+             // Elemental switch is specifically Bench -> Active.
+             // We map generically: from (1..3) -> 0.
+             if *to_in_play_idx == 0 && *from_in_play_idx > 0 && *from_in_play_idx < 4 {
+                 let energy_idx = energy_type_to_index(*energy_type);
+                 let from_bench_idx = from_in_play_idx - 1; // 0..2
+                 Some(get_offset_move_energy() + from_bench_idx * 10 + energy_idx)
+             } else {
+                 None
+             }
+        }
+        SimpleAction::CommunicatePokemon { hand_pokemon } => {
+             let card_id = CardId::from_card_id(&hand_pokemon.get_id())?;
+             Some(get_offset_communicate() + card_id as usize)
+        },
+        SimpleAction::ShufflePokemonIntoDeck { hand_pokemon, .. } => {
+             let card_id = CardId::from_card_id(&hand_pokemon.get_id())?;
+             Some(get_offset_shuffle_into_deck() + card_id as usize)
+        },
+        SimpleAction::ShuffleOpponentSupporter { supporter_card } => {
+            let card_id = CardId::from_card_id(&supporter_card.get_id())?;
+             Some(get_offset_shuffle_opponent_supporter() + card_id as usize)
+        },
+        SimpleAction::DiscardOpponentSupporter { supporter_card } => {
+             let card_id = CardId::from_card_id(&supporter_card.get_id())?;
+             Some(get_offset_discard_opponent_supporter() + card_id as usize)
+        },
+        SimpleAction::DiscardOwnCard { card } => {
+             let card_id = CardId::from_card_id(&card.get_id())?;
+             Some(get_offset_discard_own_card() + card_id as usize)
+        },
+        SimpleAction::AttachFromDiscard { in_play_idx, .. } => {
+             if *in_play_idx < 4 {
+                 Some(get_offset_attach_from_discard() + in_play_idx)
+             } else {
+                 None
+             }
+        },
+        SimpleAction::ApplyEeveeBagDamageBoost => Some(get_offset_eevee_boost()),
+        SimpleAction::HealAllEeveeEvolutions => Some(get_offset_heal_eevee()),
+        SimpleAction::DiscardFossil { in_play_idx } => {
+             if *in_play_idx < 4 {
+                 Some(get_offset_discard_fossil() + in_play_idx)
+             } else {
+                 None
+             }
+        },
+        SimpleAction::Heal { in_play_idx, .. } => {
+             if *in_play_idx < 4 {
+                 Some(get_offset_heal() + in_play_idx)
+             } else {
+                 None
+             }
+        },
+        SimpleAction::MoveAllDamage { from, to } => {
+             if *from < 4 && *to < 4 {
+                 Some(get_offset_move_damage() + from * 4 + to)
+             } else {
+                 None
+             }
+        },
+        SimpleAction::ApplyDamage { .. } => {
+            // ApplyDamage is deterministic but may appear in legal_actions.
+            // Now has its own dedicated slot.
+            Some(get_offset_apply_damage())
+        }
+        SimpleAction::Noop => Some(get_offset_noop()),
     }
 }
 
 pub fn action_name(id: usize) -> String {
+    // Get all offsets from the registry
+    let offset_end_turn = get_offset_end_turn();
+    let offset_attack = get_offset_attack();
+    let offset_retreat = get_offset_retreat();
+    let offset_use_ability = get_offset_use_ability();
+    let offset_place = get_offset_place();
     let offset_evolve = get_offset_evolve();
     let offset_play = get_offset_play();
     let offset_attach = get_offset_attach();
     let offset_attach_tool = get_offset_attach_tool();
     let offset_activate = get_offset_activate();
     let offset_draw_card = get_offset_draw_card();
-
-    if id == OFFSET_END_TURN {
+    let offset_move_energy = get_offset_move_energy();
+    let offset_communicate = get_offset_communicate();
+    let offset_shuffle_into_deck = get_offset_shuffle_into_deck();
+    let offset_shuffle_op_sup = get_offset_shuffle_opponent_supporter();
+    let offset_discard_op_sup = get_offset_discard_opponent_supporter();
+    let offset_discard_own = get_offset_discard_own_card();
+    let offset_attach_from_discard = get_offset_attach_from_discard();
+    let offset_eevee_boost = get_offset_eevee_boost();
+    let offset_heal_eevee = get_offset_heal_eevee();
+    let offset_discard_fossil = get_offset_discard_fossil();
+    let offset_heal = get_offset_heal();
+    let offset_move_damage = get_offset_move_damage();
+    let offset_apply_damage = get_offset_apply_damage();
+    let offset_noop = get_offset_noop();
+    
+    if id == offset_end_turn {
         return "EndTurn".to_string();
     }
-    if (OFFSET_ATTACK..OFFSET_RETREAT).contains(&id) {
-        return format!("Attack({})", id - OFFSET_ATTACK);
+    if (offset_attack..offset_retreat).contains(&id) {
+        return format!("Attack({})", id - offset_attack);
     }
-    if (OFFSET_RETREAT..OFFSET_USE_ABILITY).contains(&id) {
-        return format!("Retreat({})", id - OFFSET_RETREAT);
+    if (offset_retreat..offset_use_ability).contains(&id) {
+        return format!("Retreat({})", id - offset_retreat);
     }
-    if (OFFSET_USE_ABILITY..OFFSET_PLACE).contains(&id) {
-        return format!("UseAbility({})", id - OFFSET_USE_ABILITY);
+    if (offset_use_ability..offset_place).contains(&id) {
+        return format!("UseAbility({})", id - offset_use_ability);
     }
-    if (OFFSET_PLACE..offset_evolve).contains(&id) {
-        let val = id - OFFSET_PLACE;
+    if (offset_place..offset_evolve).contains(&id) {
+        let val = id - offset_place;
         let slot = val % 4;
         let card_idx = val / 4;
         let card_id = card_index_to_id(card_idx);
@@ -219,8 +343,70 @@ pub fn action_name(id: usize) -> String {
         let val = id - offset_activate;
         return format!("Activate({})", val);
     }
-    if id == offset_draw_card {
+    if (offset_draw_card..offset_move_energy).contains(&id) {
         return "DrawCard".to_string();
+    }
+    if (offset_move_energy..offset_communicate).contains(&id) {
+        let val = id - offset_move_energy;
+        let energy_idx = val % 10;
+        let bench_idx = (val / 10) + 1;
+        let energy_type = index_to_energy_type(energy_idx);
+        return format!("MoveEnergy(from:{}, to:0, {:?})", bench_idx, energy_type);
+    }
+    if (offset_communicate..offset_shuffle_into_deck).contains(&id) {
+        let card_idx = id - offset_communicate;
+        let card_id = card_index_to_id(card_idx);
+        return format!("CommunicatePokemon({:?})", card_id);
+    }
+    if (offset_shuffle_into_deck..offset_shuffle_op_sup).contains(&id) {
+        let card_idx = id - offset_shuffle_into_deck;
+        let card_id = card_index_to_id(card_idx);
+        return format!("ShufflePokemonIntoDeck({:?})", card_id);
+    }
+    if (offset_shuffle_op_sup..offset_discard_op_sup).contains(&id) {
+        let card_idx = id - offset_shuffle_op_sup;
+        let card_id = card_index_to_id(card_idx);
+        return format!("ShuffleOpponentSupporter({:?})", card_id);
+    }
+    if (offset_discard_op_sup..offset_discard_own).contains(&id) {
+        let card_idx = id - offset_discard_op_sup;
+        let card_id = card_index_to_id(card_idx);
+        return format!("DiscardOpponentSupporter({:?})", card_id);
+    }
+    if (offset_discard_own..offset_attach_from_discard).contains(&id) {
+        let card_idx = id - offset_discard_own;
+        let card_id = card_index_to_id(card_idx);
+        return format!("DiscardOwnCard({:?})", card_id);
+    }
+    if (offset_attach_from_discard..offset_eevee_boost).contains(&id) {
+        let idx = id - offset_attach_from_discard;
+        return format!("AttachFromDiscard({})", idx);
+    }
+    if id == offset_eevee_boost {
+        return "ApplyEeveeBagDamageBoost".to_string();
+    }
+    if id == offset_heal_eevee {
+        return "HealAllEeveeEvolutions".to_string();
+    }
+    if (offset_discard_fossil..offset_heal).contains(&id) {
+        let idx = id - offset_discard_fossil;
+        return format!("DiscardFossil({})", idx);
+    }
+    if (offset_heal..offset_move_damage).contains(&id) {
+        let idx = id - offset_heal;
+        return format!("Heal({})", idx);
+    }
+    if (offset_move_damage..offset_apply_damage).contains(&id) {
+        let val = id - offset_move_damage;
+        let to = val % 4;
+        let from = val / 4;
+        return format!("MoveAllDamage(from:{}, to:{})", from, to);
+    }
+    if id == offset_apply_damage {
+        return "ApplyDamage".to_string();
+    }
+    if id == offset_noop {
+        return "Noop".to_string();
     }
 
     format!("UnknownAction({})", id)

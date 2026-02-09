@@ -811,8 +811,10 @@ impl PyGameState {
             .collect();
 
         Err(PyValueError::new_err(format!(
-            "Action ID {} is not currently legal. Available: {:?}",
-            action_id, available_ids
+            "Action ID {} ({}) is not currently legal. Available: {:?}",
+            action_id,
+            encoding::action_name(action_id),
+            available_ids
         )))
     }
 
@@ -836,8 +838,10 @@ impl PyGameState {
                 .filter_map(|a| encoding::encode_action(&a.action))
                 .collect();
             PyValueError::new_err(format!(
-                "Action ID {} is not currently legal. Available: {:?}",
-                action_id, available_ids
+                "Action ID {} ({}) is not currently legal. Available: {:?}",
+                action_id,
+                encoding::action_name(action_id),
+                available_ids
             ))
         })?;
 
@@ -864,7 +868,11 @@ impl PyGameState {
         }
 
         let action = found_action.ok_or_else(|| {
-            PyValueError::new_err(format!("Action ID {} is not currently legal", action_id))
+            PyValueError::new_err(format!(
+                "Action ID {} ({}) is not currently legal",
+                action_id,
+                encoding::action_name(action_id)
+            ))
         })?;
 
         self.game.apply_action_with_outcome(&action, outcome_idx);
