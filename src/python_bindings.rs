@@ -1396,24 +1396,27 @@ impl PyBatchedSimulator {
     }
 
     #[pyo3(name = "sample_and_step")]
-    pub fn sample_and_step(
+    pub fn sample_and_step<'py>(
         &mut self,
-        py: Python<'_>,
-        logits: Vec<Vec<f32>>,
+        py: Python<'py>,
+        logits: numpy::PyReadonlyArray2<'py, f32>,
     ) -> PyResult<(
-        Vec<Vec<f32>>,
-        Vec<f32>,
-        Vec<bool>,
-        Vec<bool>,
-        Vec<bool>,
-        Vec<usize>,
-        Vec<f32>,
-        Vec<usize>,
+        numpy::Py<numpy::PyArray2<f32>>,
+        numpy::Py<numpy::PyArray1<f32>>,
+        numpy::Py<numpy::PyArray1<bool>>,
+        numpy::Py<numpy::PyArray1<bool>>,
+        numpy::Py<numpy::PyArray1<bool>>,
+        numpy::Py<numpy::PyArray1<usize>>,
+        numpy::Py<numpy::PyArray1<f32>>,
+        numpy::Py<numpy::PyArray1<usize>>,
     )> {
-        if logits.len() != self.batch_size {
+        let logits_array = logits.as_array();
+        let shape = logits_array.shape();
+        
+        if shape[0] != self.batch_size {
             return Err(PyValueError::new_err(format!(
-                "Logits length {} does not match batch size {}",
-                logits.len(),
+                "Logits batch size {} does not match simulator batch size {}",
+                shape[0],
                 self.batch_size
             )));
         }
@@ -1422,11 +1425,21 @@ impl PyBatchedSimulator {
         let point_reward = self.point_reward;
         let damage_reward = self.damage_reward;
 
+        // Pre-allocate result vectors in Rust to collect parallel results
+        // We will convert them to numpy arrays later
+        // Note: Creating PyArrays directly inside rayon thread might be tricky due to GIL/contexts
+        // So we collect to Vecs first, then move to PyArrays. 
+        // Although this still involves copy, it avoids the `Vec<Vec<f32>>` overhead which is huge.
+        // And input `logits` is now zero-copy.
+
         let results: Vec<_> = py.allow_threads(|| {
             self.games
                 .par_iter_mut()
-                .zip(logits.par_iter())
+                .zip(logits_array.outer_iter()) // iterating over rows of 2D array
                 .map(|(game, logit_row)| {
+                     // logit_row is ArrayView1<f32>
+                     // We need to check if logit_row is contiguous or use iterator
+                     
                     if game.is_game_over() {
                         return (
                             encoding::encode_observation(game.state(), game.state().current_player),
@@ -1456,8 +1469,10 @@ impl PyBatchedSimulator {
 
                     for action in &legal_actions {
                         if let Some(id) = encoding::encode_action(&action.action) {
+                            // Check bounds
                             if id < logit_row.len() {
-                                filtered_probs.push(logit_row[id]);
+                                let val = logit_row[id];
+                                filtered_probs.push(val);
                                 filtered_action_ids.push(id);
                             }
                         }
@@ -1554,7 +1569,6 @@ impl PyBatchedSimulator {
                             game.state().current_player,
                         )
                     } else {
-                        // This shouldn't happen if game logic matches
                         (
                             encoding::encode_observation(game.state(), game.state().current_player),
                             0.0,
@@ -1570,28 +1584,82 @@ impl PyBatchedSimulator {
                 .collect()
         });
 
-        let mut next_obs = Vec::with_capacity(self.batch_size);
-        let mut rewards = Vec::with_capacity(self.batch_size);
-        let mut dones = Vec::with_capacity(self.batch_size);
-        let mut timed_out = Vec::with_capacity(self.batch_size);
-        let mut valid_mask = Vec::with_capacity(self.batch_size);
-        let mut actions = Vec::with_capacity(self.batch_size);
-        let mut log_probs = Vec::with_capacity(self.batch_size);
-        let mut current_players = Vec::with_capacity(self.batch_size);
+        // Unzip results into numpy arrays
+        // obs is flattened
+        let obs_dim = if !results.is_empty() && !results[0].0.is_empty() {
+            results[0].0.len()
+        } else {
+            // Fallback or error, assume standard size?
+            // Usually games[0] has size
+            if !self.games.is_empty() {
+                encoding::observation_length(&self.games[0].state())
+            } else {
+                0
+            }
+        };
 
-        for (o, r, d, t, v, a, lp, cp) in results {
-            next_obs.push(o);
-            rewards.push(r);
-            dones.push(d);
-            timed_out.push(t);
-            valid_mask.push(v);
-            actions.push(a);
-            log_probs.push(lp);
-            current_players.push(cp);
+        // Allocate numpy arrays
+        let py_obs = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, obs_dim], false);
+        let py_rew = numpy::PyArray1::<f32>::zeros_bound(py, [self.batch_size], false);
+        let py_done = numpy::PyArray1::<bool>::zeros_bound(py, [self.batch_size], false);
+        let py_timeout = numpy::PyArray1::<bool>::zeros_bound(py, [self.batch_size], false);
+        let py_valid = numpy::PyArray1::<bool>::zeros_bound(py, [self.batch_size], false);
+        let py_act = numpy::PyArray1::<usize>::zeros_bound(py, [self.batch_size], false);
+        let py_logp = numpy::PyArray1::<f32>::zeros_bound(py, [self.batch_size], false);
+        let py_cp = numpy::PyArray1::<usize>::zeros_bound(py, [self.batch_size], false);
+
+        // Fill arrays (This happens in main thread, holding GIL, but acts on contiguous memory)
+        // Optimization: We could do this using unsafe raw pointers or slices to be faster
+        // But iterating and setting is safe and usually fast enough for 256 items.
+        // The bottleneck was Vec<Vec> allocations.
+        
+        {
+            let mut obs_view = py_obs.readwrite();
+            let mut rew_view = py_rew.readwrite();
+            let mut done_view = py_done.readwrite();
+            let mut timeout_view = py_timeout.readwrite();
+            let mut valid_view = py_valid.readwrite();
+            let mut act_view = py_act.readwrite();
+            let mut logp_view = py_logp.readwrite();
+            let mut cp_view = py_cp.readwrite();
+
+            let obs_slice = obs_view.as_slice_mut().unwrap();
+            let rew_slice = rew_view.as_slice_mut().unwrap();
+            let done_slice = done_view.as_slice_mut().unwrap();
+            let timeout_slice = timeout_view.as_slice_mut().unwrap();
+            let valid_slice = valid_view.as_slice_mut().unwrap();
+            let act_slice = act_view.as_slice_mut().unwrap();
+            let logp_slice = logp_view.as_slice_mut().unwrap();
+            let cp_slice = cp_view.as_slice_mut().unwrap();
+
+            for (i, (o, r, d, t, v, a, lp, cp)) in results.into_iter().enumerate() {
+                // Copy observation
+                if o.len() == obs_dim {
+                     // efficient copy
+                     let start = i * obs_dim;
+                     let end = start + obs_dim;
+                     obs_slice[start..end].copy_from_slice(&o);
+                }
+                
+                rew_slice[i] = r;
+                done_slice[i] = d;
+                timeout_slice[i] = t;
+                valid_slice[i] = v;
+                act_slice[i] = a;
+                logp_slice[i] = lp;
+                cp_slice[i] = cp;
+            }
         }
 
         Ok((
-            next_obs, rewards, dones, timed_out, valid_mask, actions, log_probs, current_players,
+            py_obs.unbind(),
+            py_rew.unbind(),
+            py_done.unbind(),
+            py_timeout.unbind(),
+            py_valid.unbind(),
+            py_act.unbind(),
+            py_logp.unbind(),
+            py_cp.unbind(),
         ))
     }
 }
