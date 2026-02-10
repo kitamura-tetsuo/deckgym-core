@@ -409,11 +409,11 @@ pub(crate) fn apply_common_mutation(state: &mut State, action: &Action) {
             .expect("Pokemon should be there if using ability");
         pokemon.ability_used = true;
     }
-    if let SimpleAction::Attack(_) = &action.action {
-        state
-            .move_generation_stack
-            .push((action.actor, vec![SimpleAction::EndTurn]));
-    }
+    // if let SimpleAction::Attack(_) = &action.action {
+    //     state
+    //         .move_generation_stack
+    //         .push((action.actor, vec![SimpleAction::EndTurn]));
+    // }
 }
 
 #[cfg(test)]

@@ -87,12 +87,46 @@ pub fn forecast_action(state: &State, action: &Action) -> (Probabilities, Mutati
     };
 
     let mut wrapped_mutations: Mutations = vec![];
+    let is_attack = matches!(&action.action, SimpleAction::Attack(_));
+
     for original_mutation in mutas {
         let mutation_closure: Mutation = Box::new(original_mutation);
-        wrapped_mutations.push(Box::new(move |rng, state, action| {
-            apply_common_mutation(state, action);
-            mutation_closure(rng, state, action);
-        }));
+        if is_attack {
+            wrapped_mutations.push(Box::new(move |rng, state, action| {
+                apply_common_mutation(state, action);
+                mutation_closure(rng, state, action);
+
+                // Auto-End Turn Logic
+                if state.move_generation_stack.is_empty() && !state.is_game_over() {
+                    let (et_probs, mut et_mutations) = forecast_end_turn(state);
+                    // Use a new RNG seeded from the main one for the distribution to avoid borrowing issues if any
+                    // But WeightedIndex construction doesn't use RNG. sample does.
+                    // We can reuse `rng`.
+                    let dist = WeightedIndex::new(&et_probs).unwrap();
+                    let chosen_index = dist.sample(rng);
+                    
+                    // Construct a temporary action for the EndTurn logic
+                    let end_turn_action = Action {
+                         actor: action.actor,
+                         action: SimpleAction::EndTurn,
+                         is_stack: false, 
+                    };
+                    
+                    et_mutations.remove(chosen_index)(rng, state, &end_turn_action);
+                } else {
+                    // If there are forced actions (e.g. SelectActive due to KO),
+                    // we cannot auto-end turn yet. We must queue EndTurn to happen
+                    // after the forced actions are resolved.
+                    // We insert at 0 (bottom of stack) so it happens last.
+                    state.move_generation_stack.insert(0, (action.actor, vec![SimpleAction::EndTurn]));
+                }
+            }));
+        } else {
+            wrapped_mutations.push(Box::new(move |rng, state, action| {
+                apply_common_mutation(state, action);
+                mutation_closure(rng, state, action);
+            }));
+        }
     }
     (proba, wrapped_mutations)
 }
