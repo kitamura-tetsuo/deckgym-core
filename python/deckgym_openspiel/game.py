@@ -19,19 +19,12 @@ _GAME_TYPE = pyspiel.GameType(
     parameter_specification={
         "deck_id_1": "deckgym-core/example_decks/mewtwoex.txt",
         "deck_id_2": "deckgym-core/example_decks/mewtwoex.txt",
-        "seed": 0
+        "seed": 0,
+        "max_game_length": 200
     }
 )
 
-_GAME_INFO = pyspiel.GameInfo(
-    deckgym.PyGameState.get_action_space_size(),
-    100,
-    2,
-    -1.0,
-    1.0,
-    0.0,
-    1000
-)
+
 
 class DeckGymGame(pyspiel.Game):
     def __init__(self, params=None):
@@ -41,14 +34,25 @@ class DeckGymGame(pyspiel.Game):
         self._deck_id_1 = params.get("deck_id_1", "default_deck")
         self._deck_id_2 = params.get("deck_id_2", "default_deck")
         self._seed = params.get("seed", None)
+        self._max_game_length = params.get("max_game_length", 200)
 
         try:
             dummy_state = deckgym.PyGameState(self._deck_id_1, self._deck_id_2, self._seed)
             self._obs_shape = [len(dummy_state.encode_observation())]
         except Exception:
              self._obs_shape = [0]
+             
+        game_info = pyspiel.GameInfo(
+            deckgym.PyGameState.get_action_space_size(),
+            100,
+            2,
+            -1.0,
+            1.0,
+            0.0,
+            self._max_game_length
+        )
 
-        super().__init__(_GAME_TYPE, _GAME_INFO, params)
+        super().__init__(_GAME_TYPE, game_info, params)
 
     def new_initial_state(self):
         # Pass deck configurations stored in self.params or self.deck_ids
