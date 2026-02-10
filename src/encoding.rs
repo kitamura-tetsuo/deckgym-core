@@ -565,3 +565,7 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
 
     obs
 }
+
+pub fn observation_length(state: &State) -> usize {
+    encode_state(state, 0, false).len()
+}

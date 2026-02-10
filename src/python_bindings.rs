@@ -15,6 +15,9 @@ use crate::{
     actions::{Action, SimpleAction},
 };
 
+use numpy::PyArrayMethods;
+use pyo3::Py;
+
 /// Python wrapper for EnergyType
 #[pyclass]
 #[derive(Clone, Copy)]
@@ -1395,21 +1398,24 @@ impl PyBatchedSimulator {
         Ok(batched_legal_actions)
     }
 
+
+
     #[pyo3(name = "sample_and_step")]
     pub fn sample_and_step<'py>(
         &mut self,
         py: Python<'py>,
         logits: numpy::PyReadonlyArray2<'py, f32>,
     ) -> PyResult<(
-        numpy::Py<numpy::PyArray2<f32>>,
-        numpy::Py<numpy::PyArray1<f32>>,
-        numpy::Py<numpy::PyArray1<bool>>,
-        numpy::Py<numpy::PyArray1<bool>>,
-        numpy::Py<numpy::PyArray1<bool>>,
-        numpy::Py<numpy::PyArray1<usize>>,
-        numpy::Py<numpy::PyArray1<f32>>,
-        numpy::Py<numpy::PyArray1<usize>>,
+        Py<numpy::PyArray2<f32>>,
+        Py<numpy::PyArray1<f32>>,
+        Py<numpy::PyArray1<bool>>,
+        Py<numpy::PyArray1<bool>>,
+        Py<numpy::PyArray1<bool>>,
+        Py<numpy::PyArray1<usize>>,
+        Py<numpy::PyArray1<f32>>,
+        Py<numpy::PyArray1<usize>>,
     )> {
+        // ... (lines 1417-1569 are unchanged) ...
         let logits_array = logits.as_array();
         let shape = logits_array.shape();
         
@@ -1425,21 +1431,14 @@ impl PyBatchedSimulator {
         let point_reward = self.point_reward;
         let damage_reward = self.damage_reward;
 
-        // Pre-allocate result vectors in Rust to collect parallel results
-        // We will convert them to numpy arrays later
-        // Note: Creating PyArrays directly inside rayon thread might be tricky due to GIL/contexts
-        // So we collect to Vecs first, then move to PyArrays. 
-        // Although this still involves copy, it avoids the `Vec<Vec<f32>>` overhead which is huge.
-        // And input `logits` is now zero-copy.
-
         let results: Vec<_> = py.allow_threads(|| {
             self.games
                 .par_iter_mut()
-                .zip(logits_array.outer_iter()) // iterating over rows of 2D array
-                .map(|(game, logit_row)| {
-                     // logit_row is ArrayView1<f32>
-                     // We need to check if logit_row is contiguous or use iterator
-                     
+                .enumerate()
+                .map(|(i, game)| {
+                    let logit_row = logits_array.row(i);
+                     // ... (simulation logic unchanged, omitted for brevity) ...
+                     // (lines 1428-1568)
                     if game.is_game_over() {
                         return (
                             encoding::encode_observation(game.state(), game.state().current_player),
@@ -1456,10 +1455,8 @@ impl PyBatchedSimulator {
                     let state_before = game.state().clone();
                     let points_before = state_before.points;
 
-                    // 1. Generate legal actions
                     let (actor, legal_actions) = generate_possible_actions(game.state());
 
-                    // 2. Filter logits and Sample
                     let mut sampled_action_id = 0;
                     let mut sampled_action: Option<Action> = None;
                     let mut sampled_log_prob = 0.0;
@@ -1469,7 +1466,6 @@ impl PyBatchedSimulator {
 
                     for action in &legal_actions {
                         if let Some(id) = encoding::encode_action(&action.action) {
-                            // Check bounds
                             if id < logit_row.len() {
                                 let val = logit_row[id];
                                 filtered_probs.push(val);
@@ -1479,10 +1475,9 @@ impl PyBatchedSimulator {
                     }
 
                     if !filtered_probs.is_empty() {
-                        // Softmax over filtered logits
                         let max_logit = filtered_probs
                             .iter()
-                            .fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+                            .fold(f32::NEG_INFINITY, |a: f32, &b| a.max(b));
                         let mut sum_exp = 0.0;
                         for p in filtered_probs.iter_mut() {
                             *p = (*p - max_logit).exp();
@@ -1498,7 +1493,6 @@ impl PyBatchedSimulator {
                         sampled_action_id = filtered_action_ids[idx];
                         sampled_log_prob = (filtered_probs[idx] + 1e-10).ln();
 
-                        // Find the Action object again
                         for action in &legal_actions {
                             if let Some(id) = encoding::encode_action(&action.action) {
                                 if id == sampled_action_id {
@@ -1586,7 +1580,7 @@ impl PyBatchedSimulator {
 
         // Unzip results into numpy arrays
         // obs is flattened
-        let obs_dim = if !results.is_empty() && !results[0].0.is_empty() {
+        let obs_dim: usize = if !results.is_empty() && !results[0].0.is_empty() {
             results[0].0.len()
         } else {
             // Fallback or error, assume standard size?
@@ -1608,20 +1602,15 @@ impl PyBatchedSimulator {
         let py_logp = numpy::PyArray1::<f32>::zeros_bound(py, [self.batch_size], false);
         let py_cp = numpy::PyArray1::<usize>::zeros_bound(py, [self.batch_size], false);
 
-        // Fill arrays (This happens in main thread, holding GIL, but acts on contiguous memory)
-        // Optimization: We could do this using unsafe raw pointers or slices to be faster
-        // But iterating and setting is safe and usually fast enough for 256 items.
-        // The bottleneck was Vec<Vec> allocations.
-        
         {
-            let mut obs_view = py_obs.readwrite();
-            let mut rew_view = py_rew.readwrite();
-            let mut done_view = py_done.readwrite();
-            let mut timeout_view = py_timeout.readwrite();
-            let mut valid_view = py_valid.readwrite();
-            let mut act_view = py_act.readwrite();
-            let mut logp_view = py_logp.readwrite();
-            let mut cp_view = py_cp.readwrite();
+            let mut obs_view = py_obs.try_readwrite().unwrap();
+            let mut rew_view = py_rew.try_readwrite().unwrap();
+            let mut done_view = py_done.try_readwrite().unwrap();
+            let mut timeout_view = py_timeout.try_readwrite().unwrap();
+            let mut valid_view = py_valid.try_readwrite().unwrap();
+            let mut act_view = py_act.try_readwrite().unwrap();
+            let mut logp_view = py_logp.try_readwrite().unwrap();
+            let mut cp_view = py_cp.try_readwrite().unwrap();
 
             let obs_slice = obs_view.as_slice_mut().unwrap();
             let rew_slice = rew_view.as_slice_mut().unwrap();
