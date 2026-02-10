@@ -59,9 +59,6 @@ fn test_auto_turn_end_after_attack() {
     assert_eq!(state.current_player, 1);
     assert_eq!(state.current_player, 1);
     assert_eq!(state.turn_count, 4);
-    // Stack should contain DrawCard for the next player
-    assert!(!state.move_generation_stack.is_empty());
-    let (actor, actions) = state.move_generation_stack.last().unwrap();
-    assert_eq!(*actor, 1);
-    assert!(matches!(actions[0], SimpleAction::DrawCard { .. }));
+    // Stack should be empty as DrawCard is automatic and resolved
+    assert!(state.move_generation_stack.is_empty());
 }
