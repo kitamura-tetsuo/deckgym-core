@@ -88,11 +88,12 @@ fn forecast_pokemon_checkup(state: &State) -> (Probabilities, Mutations) {
         let poisons_to_handle = poisons_to_handle.clone();
         let burns_to_handle = burns_to_handle.clone();
         outcomes.push(Box::new({
-            |_, state, action| {
+            |rng, state, action| {
                 // Important for these to happen before Pokemon Checkup (Zeraora, Suicune, etc)
                 on_end_turn(action.actor, state);
 
                 apply_pokemon_checkup(
+                    rng,
                     state,
                     sleeps_to_handle,
                     paralyzed_to_handle,
@@ -141,6 +142,7 @@ fn get_poison_damage(state: &State, player: usize, in_play_idx: usize) -> u32 {
 }
 
 fn apply_pokemon_checkup(
+    rng: &mut StdRng,
     mutated_state: &mut State,
     sleeps_to_handle: Vec<(usize, usize)>,
     paralyzed_to_handle: Vec<(usize, usize)>,
@@ -213,7 +215,7 @@ fn apply_pokemon_checkup(
     mutated_state.knocked_out_by_opponent_attack_last_turn =
         mutated_state.knocked_out_by_opponent_attack_this_turn;
     mutated_state.knocked_out_by_opponent_attack_this_turn = false;
-    mutated_state.advance_turn();
+    mutated_state.advance_turn(rng);
 }
 
 fn generate_boolean_vectors(n: usize) -> Vec<Vec<bool>> {

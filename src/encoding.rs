@@ -473,11 +473,38 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
         0.0
     });
 
+    // 1.1 Turn Flags (New)
+    obs.push(if state.has_played_support { 1.0 } else { 0.0 });
+    obs.push(if state.has_retreated { 1.0 } else { 0.0 });
+    obs.push(if state.knocked_out_by_opponent_attack_last_turn { 1.0 } else { 0.0 });
+
+    // 1.2 Energy Info (New)
+    let mut current_energy_vec = vec![0.0; ENERGY_TYPES_COUNT];
+    if let Some(e) = state.current_energy {
+        current_energy_vec[energy_type_to_index(e)] = 1.0;
+    }
+    obs.extend(current_energy_vec);
+
+    let mut my_next_energy_vec = vec![0.0; ENERGY_TYPES_COUNT];
+    if let Some(e) = state.next_energies[player] {
+        my_next_energy_vec[energy_type_to_index(e)] = 1.0;
+    }
+    obs.extend(my_next_energy_vec);
+
+    let mut opp_next_energy_vec = vec![0.0; ENERGY_TYPES_COUNT];
+    if let Some(e) = state.next_energies[1 - player] {
+        opp_next_energy_vec[energy_type_to_index(e)] = 1.0;
+    }
+    obs.extend(opp_next_energy_vec);
+
+    // 2. Hand Counts
+
     // 2. Hand Counts (New)
     obs.push(state.hands[player].len() as f32);
     obs.push(state.hands[1 - player].len() as f32);
 
     // Helper to encode a pokemon slot
+    let tool_count = ToolId::iter().len();
     let encode_pokemon = |pokemon: Option<&PlayedCard>, obs: &mut Vec<f32>| {
         if let Some(p) = pokemon {
             // HP
@@ -500,12 +527,35 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
             obs.push(if p.paralyzed { 1.0 } else { 0.0 });
             obs.push(if p.confused { 1.0 } else { 0.0 });
             obs.push(if p.burned { 1.0 } else { 0.0 });
+
+            // New: Pokemon Specific State
+            obs.push(if p.played_this_turn { 1.0 } else { 0.0 });
+            obs.push(if p.ability_used { 1.0 } else { 0.0 });
+
+            // Attached Tool (One-Hot)
+            let mut tool_vec = vec![0.0; tool_count];
+            if let Some(tool_id) = p.attached_tool {
+                tool_vec[tool_id_to_index(tool_id)] = 1.0;
+            }
+            obs.extend(tool_vec);
+
+            // Key Effects
+            let active_effects = p.get_active_effects();
+            obs.push(if active_effects.contains(&crate::effects::CardEffect::NoRetreat) { 1.0 } else { 0.0 });
+            obs.push(if active_effects.contains(&crate::effects::CardEffect::CannotAttack) { 1.0 } else { 0.0 });
+            obs.push(if active_effects.iter().any(|e| matches!(e, crate::effects::CardEffect::ReducedDamage { .. })) { 1.0 } else { 0.0 });
+            obs.push(if active_effects.contains(&crate::effects::CardEffect::PreventAllDamageAndEffects) { 1.0 } else { 0.0 });
+
         } else {
             // Empty slot
             obs.push(0.0); // HP
             obs.extend(vec![0.0; ENERGY_TYPES_COUNT]); // Energy
             obs.extend(vec![0.0; card_count]); // Card ID
             obs.extend(vec![0.0; 5]); // Status (poisoned, asleep, paralyzed, confused, burned)
+            obs.push(0.0); // played_this_turn
+            obs.push(0.0); // ability_used
+            obs.extend(vec![0.0; tool_count]); // tool
+            obs.extend(vec![0.0; 4]); // key effects
         }
     };
 
@@ -543,7 +593,22 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
 
     // 9. Deck Count
     obs.push(state.decks[player].cards.len() as f32);
-    obs.push(state.decks[1 - player].cards.len() as f32); // Is opponent deck size visible? Yes.
+    obs.push(state.decks[1 - player].cards.len() as f32);
+
+    // 9.1 Deck (Bag of Cards) - NEW
+    let mut deck_vec = vec![0.0; card_count];
+    if !public_only {
+        for card in &state.decks[player].cards {
+            if let Some(cid) = CardId::from_card_id(&card.get_id()) {
+                deck_vec[cid as usize] += 1.0;
+            }
+        }
+    }
+    obs.extend(deck_vec);
+
+    // 9.2 Opponent Deck (Bag of Cards) - Always masked
+    let opp_deck_vec = vec![0.0; card_count];
+    obs.extend(opp_deck_vec);
 
     // 10. Discard (Bag of Cards)
     let mut discard_vec = vec![0.0; card_count];
@@ -568,4 +633,34 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
 
 pub fn observation_length(state: &State) -> usize {
     encode_state(state, 0, false).len()
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::load_test_decks;
+
+    #[test]
+    fn test_observation_encoding_expansion() {
+        let (deck_a, deck_b) = load_test_decks();
+        let mut state = State::new(&deck_a, &deck_b);
+
+        // Initial state
+        let obs_initial = encode_observation(&state, 0);
+        let len_initial = obs_initial.len();
+        assert!(len_initial > 0);
+
+        // Set some flags
+        state.set_knocked_out_by_opponent_attack_last_turn(true);
+        let obs_with_ko = encode_observation(&state, 0);
+        
+        // Value should change
+        assert_ne!(obs_initial, obs_with_ko);
+
+        // Verify next energy is encoded
+        state.next_energies[0] = Some(EnergyType::Fire);
+        let obs_with_energy = encode_observation(&state, 0);
+        assert_ne!(obs_with_ko, obs_with_energy);
+        
+        println!("Observation length: {}", len_initial);
+    }
 }

@@ -129,7 +129,7 @@ fn test_configuration(
         let params_copy = *params; // Copy params for closure
         let depth = config.depth;
 
-        let player_factory = move |deck_a: Deck, deck_b: Deck| -> Vec<Box<dyn Player>> {
+        let player_factory = move |deck_a: Deck, deck_b: Deck| -> Vec<Box<dyn Player + Send>> {
             vec![
                 Box::new(ExpectiMiniMaxPlayer {
                     deck: deck_a,

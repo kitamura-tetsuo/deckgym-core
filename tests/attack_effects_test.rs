@@ -29,6 +29,14 @@ fn test_weedle_multiply_attack() {
         vec![],
     );
     state.in_play_pokemon[0][0] = Some(active_weedle);
+    
+    // Clear bench to ensure clean state for test
+    for i in 1..4 { // Standard bench size is 3 + active at 0
+        // Safe access or just use direct indexing if known size
+        if i < state.in_play_pokemon[0].len() {
+             state.in_play_pokemon[0][i] = None;
+        }
+    }
 
     // Add another Weedle to the deck
     state.decks[0].cards.push(weedle_card.clone());

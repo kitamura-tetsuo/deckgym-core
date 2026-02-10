@@ -1,5 +1,5 @@
 use log::{debug, trace};
-use rand::{seq::SliceRandom, Rng};
+use rand::{rngs::StdRng, seq::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::hash::Hash;
@@ -30,6 +30,7 @@ pub struct State {
 
     // Core state
     pub(crate) current_energy: Option<EnergyType>,
+    pub(crate) next_energies: [Option<EnergyType>; 2],
     pub hands: [Vec<Card>; 2],
     pub decks: [Deck; 2],
     pub discard_piles: [Vec<Card>; 2],
@@ -55,6 +56,7 @@ impl State {
             current_player: 0,
             move_generation_stack: Vec::new(),
             current_energy: None,
+            next_energies: [None, None],
             hands: [Vec::new(), Vec::new()],
             decks: [deck_a.clone(), deck_b.clone()],
             discard_piles: [Vec::new(), Vec::new()],
@@ -115,7 +117,23 @@ impl State {
         // Flip a coin to determine the starting player
         state.current_player = rng.gen_range(0..2);
 
+        // Pre-sample initial next energies to avoid initialization issues
+        state.next_energies[0] = state.sample_energy(0, rng);
+        state.next_energies[1] = state.sample_energy(1, rng);
+        // Set initial current energy for player 0
+        state.current_energy = state.next_energies[0];
+        // Re-sample next energy for player 0 since current was just consumed/set
+        state.next_energies[0] = state.sample_energy(0, rng);
+
         state
+    }
+
+    fn sample_energy(&self, player: usize, rng: &mut impl Rng) -> Option<EnergyType> {
+        let deck_energies = &self.decks[player].energy_types;
+        if deck_energies.is_empty() {
+             return None;
+        }
+        Some(*deck_energies.choose(rng).expect("Decks should have at least 1 energy"))
     }
 
     pub fn get_remaining_hp(&self, player: usize, index: usize) -> u32 {
@@ -201,17 +219,12 @@ impl State {
             .filter(|card| matches!(card, Card::Pokemon(_)))
     }
 
-    pub(crate) fn generate_energy(&mut self) {
-        if self.decks[self.current_player].energy_types.len() == 1 {
-            self.current_energy = Some(self.decks[self.current_player].energy_types[0]);
-        }
+    pub(crate) fn generate_energy(&mut self, rng: &mut StdRng) {
+        // Set current energy from pre-sampled next energy
+        self.current_energy = self.next_energies[self.current_player];
 
-        let deck_energies = &self.decks[self.current_player].energy_types;
-        let mut rng = rand::thread_rng();
-        let generated = deck_energies
-            .choose(&mut rng)
-            .expect("Decks should have at least 1 energy");
-        self.current_energy = Some(*generated);
+        // Sample new next energy for this player
+        self.next_energies[self.current_player] = self.sample_energy(self.current_player, rng);
     }
 
     pub(crate) fn end_turn_maintenance(&mut self) {
@@ -303,7 +316,7 @@ impl State {
     }
 
     // This function should be called only from turn 1 onwards
-    pub(crate) fn advance_turn(&mut self) {
+    pub(crate) fn advance_turn(&mut self, rng: &mut StdRng) {
         debug!(
             "Ending turn moving from player {} to player {}",
             self.current_player,
@@ -313,7 +326,7 @@ impl State {
         self.turn_count += 1;
         self.end_turn_maintenance();
         self.queue_draw_action(self.current_player, 1);
-        self.generate_energy();
+        self.generate_energy(rng);
     }
 
     pub(crate) fn is_game_over(&self) -> bool {
@@ -539,5 +552,28 @@ mod tests {
         assert_eq!(state.discard_energies[0].len(), 2);
         assert_eq!(state.discard_energies[0][0], EnergyType::Grass);
         assert_eq!(state.discard_energies[0][1], EnergyType::Grass);
+    }
+
+    #[test]
+    fn test_next_energy_logic() {
+        use rand::SeedableRng;
+        let (deck_a, deck_b) = load_test_decks();
+        let mut state = State::new(&deck_a, &deck_b);
+        
+        // Manually set next energy
+        state.next_energies[0] = Some(EnergyType::Grass);
+        
+        // Current energy should be None initially
+        assert!(state.current_energy.is_none());
+        
+        // Generate energy
+        let mut rng = StdRng::seed_from_u64(42);
+        state.generate_energy(&mut rng);
+        
+        // Current energy should now be Grass
+        assert_eq!(state.current_energy, Some(EnergyType::Grass));
+        
+        // Next energy should have been re-sampled (not None if deck has energy)
+        assert!(state.next_energies[0].is_some());
     }
 }
