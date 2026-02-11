@@ -111,6 +111,7 @@ pub(crate) fn forecast_ability(
         AbilityId::A4a032MisdreavusInfiltratingInspection => {
             panic!("Infiltrating Inspection is triggered when played to bench")
         }
+        AbilityId::A2a035RotomSpeedLink => panic!("Speed Link is a passive ability"),
     }
 }
 

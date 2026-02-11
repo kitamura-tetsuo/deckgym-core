@@ -24,6 +24,9 @@ pub(crate) fn get_retreat_cost(state: &State, card: &PlayedCard) -> Vec<EnergyTy
             if ability_id == AbilityId::A2078GiratinaLevitate && !card.attached_energy.is_empty() {
                 return vec![];
             }
+            if ability_id == AbilityId::A2a035RotomSpeedLink && is_speed_link_active(state, state.current_player) {
+                return vec![];
+            }
         }
         let mut normal_cost = pokemon_card.retreat_cost.clone();
         if let Some(tool_id) = card.attached_tool {
@@ -79,6 +82,15 @@ pub(crate) fn get_retreat_cost(state: &State, card: &PlayedCard) -> Vec<EnergyTy
     } else {
         vec![]
     }
+}
+
+pub(crate) fn is_speed_link_active(state: &State, player_idx: usize) -> bool {
+    state
+        .enumerate_in_play_pokemon(player_idx)
+        .any(|(_, pokemon)| {
+            let name = pokemon.get_name();
+            name == "Arceus" || name == "Arceus ex"
+        })
 }
 
 // Test Colorless is wildcard when counting energy
@@ -143,5 +155,45 @@ mod tests {
             retreat_cost,
             vec![EnergyType::Colorless, EnergyType::Colorless]
         );
+    }
+
+    #[test]
+    fn test_rotom_speed_link_ability() {
+        let rotom_card = get_card_by_enum(CardId::A2a035Rotom);
+        let arceus_card = get_card_by_enum(CardId::A2a070Arceus);
+        let arceus_ex_card = get_card_by_enum(CardId::A2a071ArceusEx);
+
+        let mut state = State::default();
+        let player = state.current_player;
+
+        // 1. Check Rotom's retreat cost WITHOUT Arceus in play
+        let rotom = to_playable_card(&rotom_card, false);
+        state.in_play_pokemon[player][0] = Some(rotom.clone());
+        
+        let retreat_cost = get_retreat_cost(&state, &state.in_play_pokemon[player][0].as_ref().unwrap());
+        assert!(!retreat_cost.is_empty(), "Rotom should have a retreat cost without Arceus");
+
+        // 2. Check Rotom's retreat cost WITH Arceus in play (bench)
+        let arceus = to_playable_card(&arceus_card, false);
+        state.in_play_pokemon[player][1] = Some(arceus);
+        
+        let retreat_cost = get_retreat_cost(&state, &state.in_play_pokemon[player][0].as_ref().unwrap());
+        assert!(retreat_cost.is_empty(), "Rotom should have 0 retreat cost with Arceus in play");
+
+        // 3. Check Rotom's retreat cost WITH Arceus ex in play (replace bench)
+        let arceus_ex = to_playable_card(&arceus_ex_card, false);
+        state.in_play_pokemon[player][1] = Some(arceus_ex);
+        
+        let retreat_cost = get_retreat_cost(&state, &state.in_play_pokemon[player][0].as_ref().unwrap());
+        assert!(retreat_cost.is_empty(), "Rotom should have 0 retreat cost with Arceus ex in play");
+        
+        // 4. Check Rotom's retreat cost when Arceus is opponent's (should not affect)
+        let opponent = (player + 1) % 2;
+        state.in_play_pokemon[player][1] = None;
+        let arceus = to_playable_card(&arceus_card, false);
+        state.in_play_pokemon[opponent][0] = Some(arceus);
+        
+        let retreat_cost = get_retreat_cost(&state, &state.in_play_pokemon[player][0].as_ref().unwrap());
+        assert!(!retreat_cost.is_empty(), "Rotom should have a retreat cost if Arceus is only on opponent's side");
     }
 }
