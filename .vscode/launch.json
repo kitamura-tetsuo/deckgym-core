@@ -6,15 +6,19 @@
       "request": "launch",
       "name": "TUI replay mode",
       "cargo": {
-        "args": ["build", "--bin=tui", "--features=tui"],
+        "args": [
+          "build",
+          "--bin=tui",
+          "--features=tui"
+        ],
         "filter": {
           "name": "tui",
           "kind": "bin"
         }
       },
       "args": [
-        "example_decks/venusaur-exeggutor.txt",
-        "example_decks/weezing-arbok.txt",
+        "/workspaces/PokemonTCGP/simulator/decks/49bf024f.txt",
+        "/workspaces/PokemonTCGP/simulator/decks/dihead.txt",
         "--players",
         "e,e"
       ],
@@ -25,7 +29,11 @@
       "request": "launch",
       "name": "TUI interactive mode",
       "cargo": {
-        "args": ["build", "--bin=tui", "--features=tui"],
+        "args": [
+          "build",
+          "--bin=tui",
+          "--features=tui"
+        ],
         "filter": {
           "name": "tui",
           "kind": "bin"
@@ -44,7 +52,9 @@
       "request": "launch",
       "name": "Simulate (with seed)",
       "cargo": {
-        "args": ["build"],
+        "args": [
+          "build"
+        ],
         "filter": {
           "name": "deckgym",
           "kind": "bin"
@@ -62,6 +72,33 @@
         "10208089616628633601",
         "-vvvv"
       ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Reproduce Panic (src/state/mod.rs:366)",
+      "cargo": {
+        "args": [
+          "build"
+        ],
+        "filter": {
+          "name": "deckgym",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "simulate",
+        "/workspaces/PokemonTCGP/simulator/decks/0cf6741e.txt",
+        "/workspaces/PokemonTCGP/simulator/decks/91ad681e.txt",
+        "--num",
+        "1000",
+        "--players",
+        "r,r"
+      ],
+      "env": {
+        "RUST_BACKTRACE": "1"
+      },
       "cwd": "${workspaceFolder}"
     }
   ]

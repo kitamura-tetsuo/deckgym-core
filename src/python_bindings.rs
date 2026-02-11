@@ -8,11 +8,13 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 
 use crate::{
+    card_ids::CardId,
     deck::Deck, encoding, game::Game, generate_possible_actions,
     models::{Ability, Attack, Card, EnergyType, PlayedCard},
     players::{create_players, fill_code_array, parse_player_code, PlayerCode, RandomPlayer},
     state::{GameOutcome, State},
-    actions::{Action, SimpleAction},
+    actions::{Action, SimpleAction, EFFECT_MECHANIC_MAP, trainer_mechanic::TrainerMechanic},
+    actions::attacks::Mechanic,
 };
 
 use numpy::PyArrayMethods;
@@ -78,6 +80,18 @@ impl PyAttack {
             .iter()
             .map(|&e| e.into())
             .collect()
+    }
+
+    #[getter]
+    fn mechanic_info(&self, py: Python) -> Option<PyObject> {
+        let effect_text = self.attack.effect.as_deref()?;
+        let mechanic = EFFECT_MECHANIC_MAP.get(effect_text)?;
+        let json_str = serde_json::to_string(mechanic).ok()?;
+        let json_module = py.import_bound("json").ok()?;
+        json_module
+            .call_method1("loads", (json_str,))
+            .ok()
+            .map(|v| v.to_object(py))
     }
 
     fn __repr__(&self) -> String {
@@ -160,6 +174,22 @@ impl PyCard {
     }
 
     #[getter]
+    fn hp(&self) -> u32 {
+        match &self.card {
+            Card::Pokemon(pokemon_card) => pokemon_card.hp,
+            _ => 0,
+        }
+    }
+
+    #[getter]
+    fn stage(&self) -> u8 {
+        match &self.card {
+            Card::Pokemon(pokemon_card) => pokemon_card.stage,
+            _ => 0,
+        }
+    }
+
+    #[getter]
     fn energy_type(&self) -> Option<PyEnergyType> {
         self.card.get_type().map(|t| t.into())
     }
@@ -188,6 +218,18 @@ impl PyCard {
             Card::Pokemon(pokemon_card) => pokemon_card.weakness.map(|w| w.into()),
             _ => None,
         }
+    }
+
+    #[getter]
+    fn trainer_mechanic_info(&self, py: Python) -> Option<PyObject> {
+        let card_id = self.card.get_card_id();
+        let mechanic = card_id.get_trainer_mechanic()?;
+        let json_str = serde_json::to_string(&mechanic).ok()?;
+        let json_module = py.import_bound("json").ok()?;
+        json_module
+            .call_method1("loads", (json_str,))
+            .ok()
+            .map(|v| v.to_object(py))
     }
 
     #[getter]
@@ -1122,7 +1164,23 @@ pub fn get_player_types() -> HashMap<String, String> {
 }
 
 /// Python module definition
+#[pyfunction]
+pub fn get_card(id: String) -> PyResult<PyCard> {
+    let card_id = CardId::from_card_id(&id).ok_or_else(|| PyValueError::new_err("Invalid Card ID"))?;
+    Ok(crate::database::get_card_by_enum(card_id).into())
+}
+
+#[pyfunction]
+pub fn get_all_cards() -> Vec<PyCard> {
+    use strum::IntoEnumIterator;
+    CardId::iter()
+        .map(|id| crate::database::get_card_by_enum(id).into())
+        .collect()
+}
+
 pub fn deckgym(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(get_card, m)?)?;
+    m.add_function(wrap_pyfunction!(get_all_cards, m)?)?;
     m.add_class::<PyEnergyType>()?;
     m.add_class::<PyAttack>()?;
     m.add_class::<PyAbility>()?;

@@ -157,6 +157,13 @@ impl Card {
         }
     }
 
+    pub fn get_full_identity(&self) -> String {
+        match self {
+            Card::Pokemon(p) => format!("{} ({} {})", p.name, p.booster_pack, p.id),
+            Card::Trainer(t) => format!("{} ({} {})", t.name, t.booster_pack, t.id),
+        }
+    }
+
     pub(crate) fn get_attacks(&self) -> Vec<Attack> {
         match self {
             Card::Pokemon(pokemon_card) => pokemon_card.attacks.clone(),

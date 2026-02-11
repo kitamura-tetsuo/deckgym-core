@@ -1,3 +1,6 @@
+mod energy;
+mod played_card;
+
 use log::{debug, trace};
 use rand::{rngs::StdRng, seq::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
@@ -8,8 +11,10 @@ use crate::{
     actions::SimpleAction,
     deck::Deck,
     effects::TurnEffect,
-    models::{Card, EnergyType, PlayedCard},
+    models::{Card, EnergyType},
 };
+
+pub use played_card::{has_serperior_jungle_totem, PlayedCard};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GameOutcome {
@@ -38,6 +43,9 @@ pub struct State {
     // 0 index is the active pokemon, 1..4 are the bench
     pub in_play_pokemon: [[Option<PlayedCard>; 4]; 2],
 
+    // Stadium card in play (shared between both players)
+    pub stadium_in_play: Option<Card>,
+
     // Turn Flags (remember to reset these in reset_turn_states)
     pub(crate) has_played_support: bool,
     pub(crate) has_retreated: bool,
@@ -62,6 +70,7 @@ impl State {
             discard_piles: [Vec::new(), Vec::new()],
             discard_energies: [Vec::new(), Vec::new()],
             in_play_pokemon: [[None, None, None, None], [None, None, None, None]],
+            stadium_in_play: None,
             has_played_support: false,
             has_retreated: false,
 
@@ -274,6 +283,20 @@ impl State {
             .unwrap_or_default()
     }
 
+    /// Checks if GuaranteedHeadsOnNextFlip effect is active and consumes it if present
+    pub(crate) fn consume_guaranteed_heads_effect(&mut self) -> bool {
+        if let Some(effects) = self.turn_effects.get_mut(&self.turn_count) {
+            if let Some(pos) = effects
+                .iter()
+                .position(|e| matches!(e, TurnEffect::GuaranteedHeadsOnNextFlip))
+            {
+                effects.remove(pos);
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn enumerate_in_play_pokemon(
         &self,
         player: usize,
@@ -340,31 +363,6 @@ impl State {
         self.turn_count <= 2
     }
 
-    /// Attaches energies from the discard pile to a Pokemon in play.
-    /// Removes the specified energies from discard_energies and attaches them to the Pokemon.
-    pub(crate) fn attach_energies_from_discard(
-        &mut self,
-        player: usize,
-        in_play_idx: usize,
-        energies: &[EnergyType],
-    ) {
-        // Remove energies from discard pile
-        for energy in energies {
-            let pos = self.discard_energies[player]
-                .iter()
-                .position(|e| e == energy)
-                .expect("Energy should be in discard pile");
-            self.discard_energies[player].remove(pos);
-        }
-
-        // Attach energies to Pokemon
-        self.in_play_pokemon[player][in_play_idx]
-            .as_mut()
-            .expect("Pokemon should be there if attaching energy to it")
-            .attached_energy
-            .extend(energies.iter().cloned());
-    }
-
     /// Discards a Pokemon from play, moving it, its evolution chain, and its energies
     ///  to the discard pile.
     pub(crate) fn discard_from_play(&mut self, ko_receiver: usize, ko_pokemon_idx: usize) {
@@ -380,15 +378,42 @@ impl State {
         self.in_play_pokemon[ko_receiver][ko_pokemon_idx] = None;
     }
 
+    /// Removes the attached tool from a Pokémon and puts the tool card into the discard pile.
+    pub(crate) fn discard_tool(&mut self, player: usize, in_play_idx: usize) {
+        let pokemon = self.in_play_pokemon[player][in_play_idx]
+            .as_mut()
+            .expect("Pokemon should be there if discarding tool");
+        let tool_card = pokemon
+            .attached_tool
+            .take()
+            .expect("Expected tool to be attached when discarding tool");
+        self.discard_piles[player].push(tool_card);
+    }
+
     pub(crate) fn discard_from_active(&mut self, actor: usize, to_discard: &[EnergyType]) {
-        self.discard_energies[actor].extend(to_discard.iter().cloned());
-        let active = self.get_active_mut(actor);
+        self.discard_energy_from_in_play(actor, 0, to_discard);
+    }
+
+    pub(crate) fn discard_energy_from_in_play(
+        &mut self,
+        actor: usize,
+        in_play_idx: usize,
+        to_discard: &[EnergyType],
+    ) {
+        let pokemon = self.in_play_pokemon[actor][in_play_idx]
+            .as_mut()
+            .expect("Pokemon should be there if discarding energy");
+        let mut discarded: Vec<EnergyType> = Vec::new();
         for energy in to_discard {
-            if let Some(pos) = active.attached_energy.iter().position(|x| x == energy) {
-                active.attached_energy.swap_remove(pos);
+            if let Some(pos) = pokemon.attached_energy.iter().position(|e| *e == *energy) {
+                pokemon.attached_energy.swap_remove(pos);
+                discarded.push(*energy);
             } else {
-                panic!("Active Pokemon does not have energy to discard");
+                panic!("Pokemon does not have energy to discard");
             }
+        }
+        if !discarded.is_empty() {
+            self.discard_energies[actor].extend(discarded);
         }
     }
 
@@ -435,10 +460,25 @@ impl State {
         }
     }
 
+    pub fn queue_draw_action(&mut self, player: usize, amount: u8) {
+        self.move_generation_stack.push((
+            player,
+            vec![SimpleAction::DrawCard { amount }],
+        ));
+    }
+
     // =========================================================================
     // Test Helper Methods
     // These methods are public for integration tests but should be used carefully
     // =========================================================================
+
+    /// Set up multiple in-play pokemon for a player at once.
+    /// Index 0 = active, 1..3 = bench.
+    pub fn set_board(&mut self, player: usize, pokemon: Vec<PlayedCard>) {
+        for (i, card) in pokemon.into_iter().enumerate() {
+            self.in_play_pokemon[player][i] = Some(card);
+        }
+    }
 
     /// Set the flag indicating a Pokemon was KO'd by opponent's attack last turn.
     /// Used for testing Marshadow's Revenge attack and similar mechanics.
@@ -449,6 +489,20 @@ impl State {
     /// Get the flag indicating a Pokemon was KO'd by opponent's attack last turn.
     pub fn get_knocked_out_by_opponent_attack_last_turn(&self) -> bool {
         self.knocked_out_by_opponent_attack_last_turn
+    }
+
+    /// Set the Stadium card in play, discarding the old one if present
+    pub fn set_stadium(&mut self, stadium: Card, player: usize) {
+        // If there's an old Stadium, discard it to the player who played the new one
+        if let Some(old_stadium) = self.stadium_in_play.take() {
+            self.discard_piles[player].push(old_stadium);
+        }
+        self.stadium_in_play = Some(stadium);
+    }
+
+    /// Get the Stadium card currently in play
+    pub fn get_stadium(&self) -> Option<&Card> {
+        self.stadium_in_play.as_ref()
     }
 }
 
@@ -522,13 +576,13 @@ mod tests {
         let mut state = State::new(&deck_a, &deck_b);
 
         let bulbasaur_card = get_card_by_enum(CardId::A1001Bulbasaur);
-        let mut played_bulbasaur = to_playable_card(&bulbasaur_card, false);
-
-        // Attach some energy to test energy discard
-        played_bulbasaur.attach_energy(&EnergyType::Grass, 2);
+        let played_bulbasaur = to_playable_card(&bulbasaur_card, false);
 
         // Place Bulbasaur in active slot for player 0
         state.in_play_pokemon[0][0] = Some(played_bulbasaur.clone());
+
+        // Attach some energy to test energy discard
+        state.attach_energy_from_zone(0, 0, EnergyType::Grass, 2, false);
 
         // Verify initial state
         assert!(state.in_play_pokemon[0][0].is_some());

@@ -1,3 +1,7 @@
 {
-  "rust-analyzer.cargo.features": ["tui", "python"]
+  "rust-analyzer.cargo.features": [
+    "tui",
+    "python"
+  ],
+  "lldb.cargo": "/home/node/.cargo/bin/cargo"
 }

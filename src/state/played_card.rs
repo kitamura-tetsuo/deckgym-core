@@ -2,12 +2,13 @@ use core::fmt;
 use log::debug;
 use serde::{Deserialize, Serialize};
 
+use super::State;
 use crate::{
     card_ids::CardId,
+    database::get_card_by_enum,
     effects::CardEffect,
     models::{Attack, Card, EnergyType, StatusCondition, TrainerType},
-    tool_ids::ToolId,
-    AbilityId, State,
+    AbilityId,
 };
 
 /// This represents a card in the mat. Has a pointer to the card
@@ -18,7 +19,7 @@ pub struct PlayedCard {
     pub remaining_hp: u32,
     pub total_hp: u32,
     pub attached_energy: Vec<EnergyType>,
-    pub attached_tool: Option<ToolId>,
+    pub attached_tool: Option<Card>,
     pub played_this_turn: bool,
     pub ability_used: bool,
     pub poisoned: bool,
@@ -27,6 +28,7 @@ pub struct PlayedCard {
     pub burned: bool,
     pub confused: bool,
     pub cards_behind: Vec<Card>,
+    pub prevent_first_attack_damage_used: bool,
 
     /// Effects that should be cleared if moved to the bench (by retreat or similar).
     /// The second value is the number of turns left for the effect.
@@ -57,7 +59,57 @@ impl PlayedCard {
             burned: false,
             confused: false,
             effects: vec![],
+            prevent_first_attack_damage_used: false,
         }
+    }
+
+    /// Create a fresh PlayedCard from a Card at full HP with no energy, tools, or status.
+    pub fn from_card(card: &Card) -> Self {
+        let total_hp = match card {
+            Card::Pokemon(pokemon_card) => pokemon_card.hp,
+            Card::Trainer(trainer_card) => {
+                if trainer_card.trainer_card_type == TrainerType::Fossil {
+                    40
+                } else {
+                    panic!(
+                        "Cannot create PlayedCard from non-Fossil Trainer: {:?}",
+                        trainer_card
+                    );
+                }
+            }
+        };
+        Self::new(card.clone(), total_hp, total_hp, vec![], false, vec![])
+    }
+
+    /// Create a fresh PlayedCard from a CardId at full HP with no energy, tools, or status.
+    pub fn from_id(card_id: CardId) -> Self {
+        let card = get_card_by_enum(card_id);
+        Self::from_card(&card)
+    }
+
+    pub fn with_energy(mut self, energy: Vec<EnergyType>) -> Self {
+        self.attached_energy = energy;
+        self
+    }
+
+    pub fn with_damage(mut self, damage: u32) -> Self {
+        self.remaining_hp = self.remaining_hp.saturating_sub(damage);
+        self
+    }
+
+    pub fn with_hp(mut self, remaining_hp: u32) -> Self {
+        self.remaining_hp = remaining_hp;
+        self
+    }
+
+    pub fn with_tool(mut self, tool: Card) -> Self {
+        self.attached_tool = Some(tool);
+        self
+    }
+
+    pub fn with_status(mut self, status: StatusCondition) -> Self {
+        self.apply_status_condition(status);
+        self
     }
 
     pub fn get_id(&self) -> String {
@@ -91,11 +143,6 @@ impl PlayedCard {
 
     pub(crate) fn heal(&mut self, amount: u32) {
         self.remaining_hp = (self.remaining_hp + amount).min(self.get_effective_total_hp());
-    }
-
-    pub(crate) fn attach_energy(&mut self, energy: &EnergyType, amount: u8) {
-        self.attached_energy
-            .extend(std::iter::repeat_n(*energy, amount as usize));
     }
 
     pub(crate) fn apply_damage(&mut self, damage: u32) {
@@ -279,7 +326,7 @@ impl fmt::Debug for PlayedCard {
     }
 }
 
-pub fn has_serperior_jungle_totem(state: &crate::state::State, player: usize) -> bool {
+pub fn has_serperior_jungle_totem(state: &State, player: usize) -> bool {
     state.enumerate_in_play_pokemon(player).any(|(_, pokemon)| {
         AbilityId::from_pokemon_id(&pokemon.get_id()[..])
             .map(|id| id == AbilityId::A1a006SerperiorJungleTotem)

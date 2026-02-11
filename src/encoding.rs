@@ -3,7 +3,7 @@ use crate::{
     card_ids::CardId,
     models::{EnergyType, PlayedCard},
     state::State,
-    tool_ids::ToolId,
+
 };
 use strum::IntoEnumIterator;
 
@@ -28,7 +28,7 @@ struct ActionSlot {
 /// This is the single source of truth for action space layout.
 fn get_action_slots() -> Vec<ActionSlot> {
     let card_count = CardId::iter().len();
-    let tool_count = ToolId::iter().len();
+
     
     vec![
         // Basic turn actions
@@ -40,7 +40,7 @@ fn get_action_slots() -> Vec<ActionSlot> {
         ActionSlot { name: "Evolve", size: card_count * 4 },
         ActionSlot { name: "Play", size: card_count },
         ActionSlot { name: "Attach", size: ENERGY_TYPES_COUNT * 4 },
-        ActionSlot { name: "AttachTool", size: tool_count * 4 },
+        ActionSlot { name: "AttachTool", size: card_count * 4 },
         ActionSlot { name: "Activate", size: 4 },
         ActionSlot { name: "DrawCard", size: 1 },
         // Extended actions
@@ -57,6 +57,9 @@ fn get_action_slots() -> Vec<ActionSlot> {
         ActionSlot { name: "Heal", size: 4 },
         ActionSlot { name: "MoveAllDamage", size: 16 }, // 4 * 4 (from x to y)
         ActionSlot { name: "ApplyDamage", size: 1 }, // Deterministic action, single slot
+        ActionSlot { name: "HealAndDiscardEnergy", size: 4 },
+        ActionSlot { name: "ReturnPokemonToHand", size: 4 },
+        ActionSlot { name: "UseOpponentAttack", size: 3 },
         ActionSlot { name: "Noop", size: 1 },
     ]
 }
@@ -104,6 +107,9 @@ fn get_offset_discard_fossil() -> usize { get_slot_offset("DiscardFossil") }
 fn get_offset_heal() -> usize { get_slot_offset("Heal") }
 fn get_offset_move_damage() -> usize { get_slot_offset("MoveAllDamage") }
 fn get_offset_apply_damage() -> usize { get_slot_offset("ApplyDamage") }
+fn get_offset_heal_discard() -> usize { get_slot_offset("HealAndDiscardEnergy") }
+fn get_offset_return_hand() -> usize { get_slot_offset("ReturnPokemonToHand") }
+fn get_offset_use_opp_attack() -> usize { get_slot_offset("UseOpponentAttack") }
 fn get_offset_noop() -> usize { get_slot_offset("Noop") }
 
 pub fn encode_action(action: &SimpleAction) -> Option<usize> {
@@ -171,11 +177,12 @@ pub fn encode_action(action: &SimpleAction) -> Option<usize> {
         }
         SimpleAction::AttachTool {
             in_play_idx,
-            tool_id,
+            tool_card,
         } => {
-            let tool_idx = tool_id_to_index(*tool_id);
+            let card_id = CardId::from_card_id(&tool_card.get_id())?;
+            let card_idx = card_id as usize;
             if *in_play_idx < 4 {
-                Some(get_offset_attach_tool() + tool_idx * 4 + in_play_idx)
+                Some(get_offset_attach_tool() + card_idx * 4 + in_play_idx)
             } else {
                 None
             }
@@ -260,6 +267,27 @@ pub fn encode_action(action: &SimpleAction) -> Option<usize> {
             // Now has its own dedicated slot.
             Some(get_offset_apply_damage())
         }
+        SimpleAction::HealAndDiscardEnergy { in_play_idx, .. } => {
+            if *in_play_idx < 4 {
+                Some(get_offset_heal_discard() + in_play_idx)
+            } else {
+                None
+            }
+        }
+        SimpleAction::ReturnPokemonToHand { in_play_idx } => {
+            if *in_play_idx < 4 {
+                Some(get_offset_return_hand() + in_play_idx)
+            } else {
+                None
+            }
+        }
+        SimpleAction::UseOpponentAttack(idx) => {
+            if *idx < 3 {
+                Some(get_offset_use_opp_attack() + idx)
+            } else {
+                None
+            }
+        }
         SimpleAction::Noop => Some(get_offset_noop()),
     }
 }
@@ -333,11 +361,9 @@ pub fn action_name(id: usize) -> String {
     if (offset_attach_tool..offset_activate).contains(&id) {
         let val = id - offset_attach_tool;
         let slot = val % 4;
-        let tool_idx = val / 4;
-        let tool_id = ToolId::iter()
-            .nth(tool_idx)
-            .expect("Tool index should be valid");
-        return format!("AttachTool({:?}, {})", tool_id, slot);
+        let card_idx = val / 4;
+        let card_id = card_index_to_id(card_idx);
+        return format!("AttachTool({:?}, {})", card_id, slot);
     }
     if (offset_activate..offset_draw_card).contains(&id) {
         let val = id - offset_activate;
@@ -405,6 +431,22 @@ pub fn action_name(id: usize) -> String {
     if id == offset_apply_damage {
         return "ApplyDamage".to_string();
     }
+    let offset_heal_discard = get_offset_heal_discard();
+    let offset_return_hand = get_offset_return_hand();
+    let offset_use_opp_attack = get_offset_use_opp_attack();
+    
+    if (offset_heal_discard..offset_return_hand).contains(&id) {
+        let idx = id - offset_heal_discard;
+        return format!("HealAndDiscardEnergy({})", idx);
+    }
+    if (offset_return_hand..offset_use_opp_attack).contains(&id) {
+        let idx = id - offset_return_hand;
+        return format!("ReturnPokemonToHand({})", idx);
+    }
+    if (offset_use_opp_attack..offset_noop).contains(&id) {
+        let idx = id - offset_use_opp_attack;
+        return format!("UseOpponentAttack({})", idx);
+    }
     if id == offset_noop {
         return "Noop".to_string();
     }
@@ -449,11 +491,7 @@ fn card_index_to_id(idx: usize) -> Option<CardId> {
     CardId::iter().nth(idx)
 }
 
-fn tool_id_to_index(t: ToolId) -> usize {
-    ToolId::iter()
-        .position(|x| x == t)
-        .expect("ToolId should be in iter")
-}
+
 
 pub fn encode_observation(state: &State, player: usize) -> Vec<f32> {
     encode_state(state, player, false)
@@ -461,7 +499,6 @@ pub fn encode_observation(state: &State, player: usize) -> Vec<f32> {
 
 pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32> {
     let mut obs = Vec::new();
-    let card_count = get_card_count();
 
     // 1. Turn Info
     obs.push(state.turn_count as f32);
@@ -504,7 +541,7 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
     obs.push(state.hands[1 - player].len() as f32);
 
     // Helper to encode a pokemon slot
-    let tool_count = ToolId::iter().len();
+
     let encode_pokemon = |pokemon: Option<&PlayedCard>, obs: &mut Vec<f32>| {
         if let Some(p) = pokemon {
             // HP
@@ -515,12 +552,12 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
                 energies[energy_type_to_index(*e)] += 1.0;
             }
             obs.extend(energies);
-            // Card ID One-Hot
-            let mut card_vec = vec![0.0; card_count];
+            // Card ID (as f32)
             if let Some(cid) = CardId::from_card_id(&p.card.get_id()) {
-                card_vec[cid as usize] = 1.0;
+                obs.push(cid as usize as f32);
+            } else {
+                obs.push(-1.0);
             }
-            obs.extend(card_vec);
             // Status
             obs.push(if p.poisoned { 1.0 } else { 0.0 });
             obs.push(if p.asleep { 1.0 } else { 0.0 });
@@ -532,12 +569,16 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
             obs.push(if p.played_this_turn { 1.0 } else { 0.0 });
             obs.push(if p.ability_used { 1.0 } else { 0.0 });
 
-            // Attached Tool (One-Hot)
-            let mut tool_vec = vec![0.0; tool_count];
-            if let Some(tool_id) = p.attached_tool {
-                tool_vec[tool_id_to_index(tool_id)] = 1.0;
+            // Attached Tool (ID)
+            if let Some(tool_card) = &p.attached_tool {
+                 if let Some(cid) = CardId::from_card_id(&tool_card.get_id()) {
+                     obs.push(cid as usize as f32);
+                 } else {
+                     obs.push(-1.0);
+                 }
+            } else {
+                obs.push(-1.0);
             }
-            obs.extend(tool_vec);
 
             // Key Effects
             let active_effects = p.get_active_effects();
@@ -550,11 +591,11 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
             // Empty slot
             obs.push(0.0); // HP
             obs.extend(vec![0.0; ENERGY_TYPES_COUNT]); // Energy
-            obs.extend(vec![0.0; card_count]); // Card ID
+            obs.push(-1.0); // Card ID
             obs.extend(vec![0.0; 5]); // Status (poisoned, asleep, paralyzed, confused, burned)
             obs.push(0.0); // played_this_turn
             obs.push(0.0); // ability_used
-            obs.extend(vec![0.0; tool_count]); // tool
+            obs.push(-1.0); // tool
             obs.extend(vec![0.0; 4]); // key effects
         }
     };
@@ -575,58 +616,46 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
         encode_pokemon(state.in_play_pokemon[1 - player][i].as_ref(), &mut obs);
     }
 
-    // 7. Hand (Bag of Cards)
-    let mut hand_vec = vec![0.0; card_count];
+    // 7. Hand Slots (Fixed size: 10)
+    let hand_slots_limit = 10;
+    let mut hand_slots = vec![-1.0; hand_slots_limit];
     if !public_only {
-        for card in &state.hands[player] {
+        for (i, card) in state.hands[player].iter().take(hand_slots_limit).enumerate() {
             if let Some(cid) = CardId::from_card_id(&card.get_id()) {
-                hand_vec[cid as usize] += 1.0;
+                hand_slots[i] = cid as usize as f32;
             }
         }
     }
-    obs.extend(hand_vec);
+    obs.extend(hand_slots);
 
-    // 8. Opponent Hand (Bag of Cards) - Always masked (zeros)
-    // This slot is reserved for symmetry or potential future use, ensuring fixed schema.
-    let opp_hand_vec = vec![0.0; card_count];
-    obs.extend(opp_hand_vec);
+    // 8. Opponent Hand (Masked/Empty)
+    // Removed opp_hand_vec to save space. We could add slots here if revealed.
 
     // 9. Deck Count
     obs.push(state.decks[player].cards.len() as f32);
     obs.push(state.decks[1 - player].cards.len() as f32);
 
-    // 9.1 Deck (Bag of Cards) - NEW
-    let mut deck_vec = vec![0.0; card_count];
-    if !public_only {
-        for card in &state.decks[player].cards {
-            if let Some(cid) = CardId::from_card_id(&card.get_id()) {
-                deck_vec[cid as usize] += 1.0;
-            }
-        }
-    }
-    obs.extend(deck_vec);
+    // 9.1 Deck (Bag of Cards) - Removed to save space
+    // We keep the deck counts above (lines 595-596).
 
-    // 9.2 Opponent Deck (Bag of Cards) - Always masked
-    let opp_deck_vec = vec![0.0; card_count];
-    obs.extend(opp_deck_vec);
-
-    // 10. Discard (Bag of Cards)
-    let mut discard_vec = vec![0.0; card_count];
-    for card in &state.discard_piles[player] {
+    // 10. Discard Slots (Fixed size: 10)
+    let discard_slots_limit = 10;
+    let mut discard_slots = vec![-1.0; discard_slots_limit];
+    for (i, card) in state.discard_piles[player].iter().rev().take(discard_slots_limit).enumerate() {
         if let Some(cid) = CardId::from_card_id(&card.get_id()) {
-            discard_vec[cid as usize] += 1.0;
+            discard_slots[i] = cid as usize as f32;
         }
     }
-    obs.extend(discard_vec);
+    obs.extend(discard_slots);
 
-    // 11. Opponent discard
-    let mut op_discard_vec = vec![0.0; card_count];
-    for card in &state.discard_piles[1 - player] {
+    // 11. Opponent Discard Slots (Fixed size: 10)
+    let mut op_discard_slots = vec![-1.0; discard_slots_limit];
+    for (i, card) in state.discard_piles[1 - player].iter().rev().take(discard_slots_limit).enumerate() {
         if let Some(cid) = CardId::from_card_id(&card.get_id()) {
-            op_discard_vec[cid as usize] += 1.0;
+            op_discard_slots[i] = cid as usize as f32;
         }
     }
-    obs.extend(op_discard_vec);
+    obs.extend(op_discard_slots);
 
     obs
 }

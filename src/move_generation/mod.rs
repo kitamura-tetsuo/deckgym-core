@@ -63,6 +63,9 @@ pub fn generate_possible_actions(state: &State) -> (usize, Vec<Action>) {
             .enumerate()
             .for_each(|(i, x)| {
                 if x.is_some() {
+                    if !state.can_attach_energy_from_zone(i) {
+                        return;
+                    }
                     actions.push(SimpleAction::Attach {
                         attachments: vec![(1, energy, i)],
                         is_turn_energy: true,
@@ -197,7 +200,12 @@ fn generate_hand_actions(state: &State) -> Vec<SimpleAction> {
             }
             Card::Trainer(trainer_card) => {
                 let trainer_actions = generate_possible_trainer_actions(state, trainer_card)
-                    .expect("Trainer card not implemented");
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Trainer card not implemented: {} ({})",
+                            trainer_card.name, trainer_card.id
+                        )
+                    });
                 actions.extend(trainer_actions);
             }
         });
