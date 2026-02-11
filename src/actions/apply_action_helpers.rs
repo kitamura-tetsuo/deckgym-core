@@ -6,7 +6,7 @@ use rand::rngs::StdRng;
 use crate::{
     actions::{
         abilities::AbilityMechanic, ability_mechanic_from_effect,
-        effect_ability_mechanic_map::get_ability_mechanic, shared_mutations, SimpleAction,
+        effect_ability_mechanic_map::get_simulator_ability_mechanic, shared_mutations, SimpleAction,
     },
     hooks::{
         get_counterattack_damage, modify_damage, on_end_turn, on_knockout, should_poison_attacker,
@@ -303,7 +303,7 @@ fn checkapply_prevent_first_attack(
     {
         if !target_pokemon.prevent_first_attack_damage_used {
             if let Some(AbilityMechanic::PreventFirstAttack) =
-                get_ability_mechanic(&target_pokemon.card)
+                get_simulator_ability_mechanic(&target_pokemon.card)
             {
                 debug!("PreventFirstAttackDamageAfterEnteringPlay: Preventing first attack damage");
                 target_pokemon.prevent_first_attack_damage_used = true;

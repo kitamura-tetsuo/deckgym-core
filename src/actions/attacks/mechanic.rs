@@ -196,4 +196,44 @@ pub enum Mechanic {
     DiscardHandCard {
         count: usize,
     },
+    // New variants for vectorization
+    ProbabilisticDamage {
+        probs: Vec<f32>,
+        damages: Vec<u32>,
+    },
+    DrawAndDamage {
+        draw_count: u32,
+    },
+    FlipUntilTailsDamage {
+        damage_per_head: u32,
+    },
+    ChargeFromEnergyZone {
+        energy_type: EnergyType,
+        count: u32,
+        target: TargetScope,
+    },
+    KnockBack,
+    DirectDamageIfDamaged {
+        damage: u32,
+    },
+    DiscardAllEnergyOfType {
+        energy_type: EnergyType,
+    },
+    ExtraDamageIfCondition {
+        extra_damage: u32,
+        condition: String,
+    },
+    DiscardOpponentDeck {
+        count: u32,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum TargetScope {
+    SelfActive,
+    SelfBench,
+    SelfBoard,
+    OpponentActive,
+    OpponentBench,
+    OpponentBoard,
 }

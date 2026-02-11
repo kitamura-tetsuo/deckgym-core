@@ -147,6 +147,7 @@ fn forecast_ability_by_mechanic(mechanic: &AbilityMechanic) -> (Probabilities, M
         AbilityMechanic::ElectromagneticWall => {
             panic!("ElectromagneticWall is a passive ability")
         }
+        _ => unreachable!("New variants only used for vectorization: {:?}", mechanic),
     }
 }
 

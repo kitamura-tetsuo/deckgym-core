@@ -542,6 +542,7 @@ fn forecast_effect_attack_by_mechanic(
         Mechanic::DiscardHandCard { count } => {
             discard_hand_card_attack(attack.fixed_damage, *count, state)
         }
+        _ => unreachable!("New variants only used for vectorization: {:?}", mechanic),
     }
 }
 

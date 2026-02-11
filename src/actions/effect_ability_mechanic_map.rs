@@ -153,7 +153,7 @@ pub fn ability_mechanic_from_effect(effect: &str) -> Option<&'static AbilityMech
     EFFECT_ABILITY_MECHANIC_MAP.get(effect)
 }
 
-pub fn get_ability_mechanic(card: &Card) -> Option<&'static AbilityMechanic> {
+pub fn get_simulator_ability_mechanic(card: &Card) -> Option<&'static AbilityMechanic> {
     let Card::Pokemon(pokemon) = card else {
         return None;
     };
