@@ -131,6 +131,7 @@ pub fn trainer_move_generation_implementation(
         | CardId::A2b090Red
         | CardId::A4b352Red
         | CardId::A4b353Red => can_play_trainer(state, trainer_card),
+        CardId::A3151Guzma => can_play_guzma(state, trainer_card),
         CardId::A3b066EeveeBag
         | CardId::A3b107EeveeBag
         | CardId::A4b308EeveeBag
@@ -569,5 +570,19 @@ fn can_play_quick_grow_extract(
         cannot_play_trainer()
     } else {
         can_play_trainer(state, trainer_card)
+    }
+}
+
+/// Check if Guzma can be played (requires opponent to have at least one tool attached)
+fn can_play_guzma(state: &State, trainer_card: &TrainerCard) -> Option<Vec<SimpleAction>> {
+    let opponent = (state.current_player + 1) % 2;
+    let opponent_has_tool = state
+        .enumerate_in_play_pokemon(opponent)
+        .any(|(_, p)| p.has_tool_attached());
+
+    if opponent_has_tool {
+        can_play_trainer(state, trainer_card)
+    } else {
+        cannot_play_trainer()
     }
 }

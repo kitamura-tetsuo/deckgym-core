@@ -9,6 +9,8 @@ mod mutations;
 mod shared_mutations;
 pub mod trainer_mechanic;
 mod types;
+#[cfg(test)]
+mod guzma_test;
 
 pub(crate) use apply_action::apply_action;
 pub(crate) use apply_action::apply_evolve;

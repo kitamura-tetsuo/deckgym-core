@@ -47,6 +47,9 @@ pub enum TrainerMechanic {
     },
     AttachTool,
     PlaceFossil,
+    DiscardTool {
+        target_scope: TargetScope,
+    },
     MultiEffect {
         effects: Vec<TrainerMechanic>,
     },
@@ -116,6 +119,7 @@ impl CardId {
             CardId::A2150Cyrus | CardId::A2190Cyrus | CardId::A4b326Cyrus | CardId::A4b327Cyrus => Some(TrainerMechanic::Switch { target: TargetScope::OpponentBench, forced: true }),
             CardId::A1222Koga | CardId::A1269Koga => Some(TrainerMechanic::Switch { target: TargetScope::SelfActive, forced: false }),
             CardId::A4157Lyra | CardId::A4197Lyra | CardId::A4b332Lyra | CardId::A4b333Lyra => Some(TrainerMechanic::Switch { target: TargetScope::SelfActive, forced: false }),
+            CardId::A3151Guzma => Some(TrainerMechanic::DiscardTool { target_scope: TargetScope::OpponentBoard }),
 
             // --- Evolution ---
             CardId::A3144RareCandy | CardId::A4b314RareCandy | CardId::A4b315RareCandy | CardId::A4b379RareCandy => Some(TrainerMechanic::EvolutionAcceleration { stages_to_skip: 1, target_scope: TargetScope::SelfBoard }),

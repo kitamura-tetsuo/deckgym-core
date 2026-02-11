@@ -128,9 +128,9 @@ pub fn forecast_trainer_action(
             doutcome(silver_effect)
         }
         CardId::A3b066EeveeBag
-        | CardId::A3b107EeveeBag
         | CardId::A4b308EeveeBag
         | CardId::A4b309EeveeBag => doutcome(eevee_bag_effect),
+        CardId::A3151Guzma => doutcome(guzma_effect),
         CardId::B1217FlamePatch | CardId::B1331FlamePatch => doutcome(flame_patch_effect),
         CardId::B1225Copycat | CardId::B1270Copycat => doutcome(copycat_effect),
         CardId::A2b069Iono | CardId::A2b088Iono | CardId::A4b340Iono | CardId::A4b341Iono => {
@@ -877,4 +877,19 @@ fn quick_grow_extract_effect(acting_player: usize, state: &State) -> (Probabilit
     }
 
     (probabilities, outcomes)
+}
+
+fn guzma_effect(_rng: &mut StdRng, state: &mut State, action: &Action) {
+    // Discard all Pokémon Tool cards attached to each of your opponent's Pokémon.
+    let opponent = (action.actor + 1) % 2;
+    debug!("Guzma: Discarding all opponent's tools");
+    for pokemon in state.in_play_pokemon[opponent].iter_mut().flatten() {
+        if pokemon.attached_tool.is_some() {
+            let tool_id = pokemon.attached_tool.take().unwrap();
+            debug!("Guzma: Discarding tool {:?} from {}", tool_id, pokemon.get_name());
+            // Note: Currently tools are not moved to discard pile as Card objects,
+            // but we might need to add that logic if there are cards that interact with tools in discard.
+            // For now, based on discard_from_play, tools are not explicitly discarded as Cards yet.
+        }
+    }
 }
