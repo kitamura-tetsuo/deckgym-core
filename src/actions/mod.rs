@@ -10,9 +10,11 @@ mod shared_mutations;
 pub mod trainer_mechanic;
 mod types;
 #[cfg(test)]
+#[cfg(test)]
 mod guzma_test;
 
-pub(crate) use apply_action::apply_action;
+
+pub use apply_action::apply_action;
 pub(crate) use apply_action::apply_evolve;
 pub(crate) use apply_action::forecast_action;
 pub(crate) use apply_action_helpers::handle_damage;

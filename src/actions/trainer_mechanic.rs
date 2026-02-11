@@ -74,6 +74,7 @@ impl CardId {
             CardId::A2a072Irida | CardId::A2a087Irida | CardId::A4b330Irida | CardId::A4b331Irida => Some(TrainerMechanic::Heal { amount: 40, cure_status: false, target_scope: TargetScope::SelfBoard }),
             CardId::A2b070PokemonCenterLady | CardId::A2b089PokemonCenterLady => Some(TrainerMechanic::Heal { amount: 30, cure_status: true, target_scope: TargetScope::SelfBoard }),
             CardId::A3155Lillie | CardId::A3197Lillie | CardId::A3209Lillie | CardId::A4b348Lillie | CardId::A4b349Lillie | CardId::A4b374Lillie => Some(TrainerMechanic::Heal { amount: 60, cure_status: false, target_scope: TargetScope::SelfBoard }),
+            CardId::B2145LuckyIcePop => Some(TrainerMechanic::Heal { amount: 20, cure_status: false, target_scope: TargetScope::SelfActive }),
 
             // --- Retreat ---
             CardId::PA002XSpeed => Some(TrainerMechanic::RetreatCostReduction { amount: 1 }),

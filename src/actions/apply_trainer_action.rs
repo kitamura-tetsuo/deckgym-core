@@ -2,6 +2,7 @@ use std::cmp::min;
 
 use log::debug;
 use rand::rngs::StdRng;
+use rand::Rng;
 
 use crate::{
     actions::{
@@ -148,6 +149,7 @@ pub fn forecast_trainer_action(
             quick_grow_extract_effect(acting_player, state)
         }
         CardId::B1a069Serena | CardId::B1a082Serena => serena_effect(acting_player, state),
+        CardId::B2145LuckyIcePop => doutcome(lucky_ice_pop_effect),
         _ => panic!(
             "Unsupported Trainer Card: {} ({})",
             trainer_card.name, trainer_card.id
@@ -790,6 +792,41 @@ fn lisia_effect(acting_player: usize, state: &State) -> (Probabilities, Mutation
     })
 }
 
+fn lucky_ice_pop_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
+    let player = action.actor;
+    let mut healed_any = false;
+
+    if let Some(active_pokemon) = state.in_play_pokemon[player][0].as_mut() {
+        let old_hp = active_pokemon.remaining_hp;
+        active_pokemon.heal(20);
+        if active_pokemon.remaining_hp > old_hp {
+            healed_any = true;
+        }
+    }
+
+    if healed_any {
+        use rand::Rng; // Ensure Rng trait is in scope or use rng.gen_bool directly if available
+        // StdRng usually implements Rng
+        if rng.gen_bool(0.5) {
+            debug!("Lucky Ice Pop: Heads! Returning to hand.");
+            // Retrieve from discard pile
+            let discard_pile = &mut state.discard_piles[player];
+            // It should be the last card added
+            if let Some(card) = discard_pile.pop() {
+                     // We can double check it's the right card to be safe, but it should be.
+                     // A strict check logic might be hard if we don't have the card instance easily comparable
+                     // but we can check ID.
+                     if card.get_id() == "B2 145" {
+                         state.hands[player].push(card);
+                     } else {
+                         // Fallback, put it back
+                         discard_pile.push(card);
+                     }
+            }
+        }
+    }
+}
+
 fn celestic_town_elder_effect(acting_player: usize, state: &State) -> (Probabilities, Mutations) {
     // Put 1 random Basic Pokémon from your discard pile into your hand.
     let basic_pokemon: Vec<Card> = state.discard_piles[acting_player]
@@ -893,3 +930,5 @@ fn guzma_effect(_rng: &mut StdRng, state: &mut State, action: &Action) {
         }
     }
 }
+
+

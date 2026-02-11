@@ -132,6 +132,7 @@ pub fn trainer_move_generation_implementation(
         | CardId::A4b352Red
         | CardId::A4b353Red => can_play_trainer(state, trainer_card),
         CardId::A3151Guzma => can_play_guzma(state, trainer_card),
+        CardId::B2145LuckyIcePop => can_play_lucky_ice_pop(state, trainer_card),
         CardId::A3b066EeveeBag
         | CardId::A3b107EeveeBag
         | CardId::A4b308EeveeBag
@@ -586,3 +587,15 @@ fn can_play_guzma(state: &State, trainer_card: &TrainerCard) -> Option<Vec<Simpl
         cannot_play_trainer()
     }
 }
+
+/// Check if Lucky Ice Pop can be played (requires active pokemon to be damaged)
+fn can_play_lucky_ice_pop(state: &State, trainer_card: &TrainerCard) -> Option<Vec<SimpleAction>> {
+    let active_pokemon = state.maybe_get_active(state.current_player);
+    if let Some(active) = active_pokemon {
+        if active.is_damaged() {
+            return can_play_trainer(state, trainer_card);
+        }
+    }
+    cannot_play_trainer()
+}
+
