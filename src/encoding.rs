@@ -631,14 +631,25 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
     // 8. Opponent Hand (Masked/Empty)
     // Removed opp_hand_vec to save space. We could add slots here if revealed.
 
-    // 9. Deck Count
-    obs.push(state.decks[player].cards.len() as f32);
+    // 9. Deck Identification (Self) - 20 slots
+    let mut self_deck_ids = Vec::new();
+    if !public_only {
+        for card in &state.decks[player].cards {
+            if let Some(cid) = CardId::from_card_id(&card.get_id()) {
+                self_deck_ids.push(cid as usize as f32);
+            }
+        }
+    }
+    self_deck_ids.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    while self_deck_ids.len() < 20 {
+        self_deck_ids.push(-1.0);
+    }
+    obs.extend(self_deck_ids);
+
+    // 10. Opponent Deck Count (Publicly known if decks are public, or just count)
     obs.push(state.decks[1 - player].cards.len() as f32);
 
-    // 9.1 Deck (Bag of Cards) - Removed to save space
-    // We keep the deck counts above (lines 595-596).
-
-    // 10. Discard Slots (Fixed size: 10)
+    // 11. Discard Slots (Fixed size: 10)
     let discard_slots_limit = 10;
     let mut discard_slots = vec![-1.0; discard_slots_limit];
     for (i, card) in state.discard_piles[player].iter().rev().take(discard_slots_limit).enumerate() {
@@ -648,7 +659,7 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
     }
     obs.extend(discard_slots);
 
-    // 11. Opponent Discard Slots (Fixed size: 10)
+    // 12. Opponent Discard Slots (Fixed size: 10)
     let mut op_discard_slots = vec![-1.0; discard_slots_limit];
     for (i, card) in state.discard_piles[1 - player].iter().rev().take(discard_slots_limit).enumerate() {
         if let Some(cid) = CardId::from_card_id(&card.get_id()) {
