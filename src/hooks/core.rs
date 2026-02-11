@@ -553,7 +553,7 @@ fn get_weakness_modifier(
 }
 
 // TODO: Confirm is_from_attack and goes to enemy active
-pub(crate) fn modify_damage(
+pub fn modify_damage(
     state: &State,
     attacking_ref: (usize, usize),
     target_ref: (u32, usize, usize),

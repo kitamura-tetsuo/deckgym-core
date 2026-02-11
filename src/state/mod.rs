@@ -460,6 +460,13 @@ impl State {
         }
     }
 
+    pub fn queue_draw_action(&mut self, player: usize, amount: u8) {
+        self.move_generation_stack.push((
+            player,
+            vec![SimpleAction::DrawCard { amount }],
+        ));
+    }
+
     // =========================================================================
     // Test Helper Methods
     // These methods are public for integration tests but should be used carefully
@@ -485,7 +492,7 @@ impl State {
     }
 
     /// Set the Stadium card in play, discarding the old one if present
-    pub(crate) fn set_stadium(&mut self, stadium: Card, player: usize) {
+    pub fn set_stadium(&mut self, stadium: Card, player: usize) {
         // If there's an old Stadium, discard it to the player who played the new one
         if let Some(old_stadium) = self.stadium_in_play.take() {
             self.discard_piles[player].push(old_stadium);
@@ -494,7 +501,7 @@ impl State {
     }
 
     /// Get the Stadium card currently in play
-    pub(crate) fn get_stadium(&self) -> Option<&Card> {
+    pub fn get_stadium(&self) -> Option<&Card> {
         self.stadium_in_play.as_ref()
     }
 }

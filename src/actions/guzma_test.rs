@@ -4,7 +4,7 @@ use crate::{
     card_ids::CardId,
     database::get_card_by_enum,
     hooks::to_playable_card,
-    tool_ids::ToolId,
+
     State,
 };
 use crate::move_generation::generate_possible_trainer_actions;
@@ -18,12 +18,12 @@ fn test_guzma_discards_multiple_tools() {
     // Opponent (Player 1) has 2 Pokemon, each with a tool
     let bulbasaur_card = get_card_by_enum(CardId::A1001Bulbasaur);
     let mut opponent_active = to_playable_card(&bulbasaur_card, false);
-    opponent_active.attached_tool = Some(ToolId::A2148RockyHelmet);
+    opponent_active.attached_tool = Some(get_card_by_enum(CardId::A2148RockyHelmet));
     state.in_play_pokemon[1][0] = Some(opponent_active);
 
     let charmander_card = get_card_by_enum(CardId::A1033Charmander);
     let mut opponent_bench = to_playable_card(&charmander_card, false);
-    opponent_bench.attached_tool = Some(ToolId::A2147GiantCape);
+    opponent_bench.attached_tool = Some(get_card_by_enum(CardId::A2147GiantCape));
     state.in_play_pokemon[1][1] = Some(opponent_bench);
 
     // Player 0 has Guzma in hand
