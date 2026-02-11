@@ -1,16 +1,18 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     effects::{CardEffect, TurnEffect},
     models::{EnergyType, StatusCondition},
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum BenchSide {
     YourBench,
     OpponentBench,
     BothBenches,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Mechanic {
     SelfHeal {
         amount: u32,
