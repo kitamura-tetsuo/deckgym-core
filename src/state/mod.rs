@@ -198,13 +198,13 @@ impl State {
         }
     }
 
-    pub(crate) fn transfer_card_from_deck_to_hand(&mut self, player: usize, card: &Card) {
+    pub(crate) fn transfer_card_from_deck_to_hand(&mut self, player: usize, card: &Card, source: &str) {
         // Remove from deck and add to hand
         let pos = self.decks[player]
             .cards
             .iter()
             .position(|c| c == card)
-            .expect("Card must exist in deck to transfer to hand");
+            .unwrap_or_else(|| panic!("Card {:?} must exist in deck to transfer to hand (Source: {})", card, source));
         self.decks[player].cards.remove(pos);
         self.hands[player].push(card.clone());
     }
@@ -627,4 +627,16 @@ mod tests {
         // Next energy should have been re-sampled (not None if deck has energy)
         assert!(state.next_energies[0].is_some());
     }
+
+    #[test]
+    #[should_panic(
+        expected = "Card Pokemon(A1 001 Bulbasaur) must exist in deck to transfer to hand (Source: Test Source)"
+    )]
+    fn test_transfer_card_from_deck_to_hand_panic_message() {
+        let mut state = State::default();
+        let mon = get_card_by_enum(CardId::A1001Bulbasaur);
+        // Deck is empty in State::default()
+        state.transfer_card_from_deck_to_hand(0, &mon, "Test Source");
+    }
 }
+

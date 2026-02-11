@@ -16,22 +16,25 @@ pub(crate) fn pokemon_search_outcomes(
     acting_player: usize,
     state: &State,
     basic_only: bool,
+    source: &str,
 ) -> (Probabilities, Mutations) {
+    let source = source.to_string();
     card_search_outcomes_with_filter(acting_player, state, move |card: &&Card| {
         if basic_only {
             card.is_basic()
         } else {
             matches!(card, Card::Pokemon(_))
         }
-    })
+    }, source)
 }
 
 pub(crate) fn pokemon_search_outcomes_by_type(
     state: &State,
     basic_only: bool,
     energy_type: EnergyType,
+    source: &str,
 ) -> (Probabilities, Mutations) {
-    pokemon_search_outcomes_by_type_for_player(state.current_player, state, basic_only, energy_type)
+    pokemon_search_outcomes_by_type_for_player(state.current_player, state, basic_only, energy_type, source)
 }
 
 pub(crate) fn pokemon_search_outcomes_by_type_for_player(
@@ -39,12 +42,14 @@ pub(crate) fn pokemon_search_outcomes_by_type_for_player(
     state: &State,
     basic_only: bool,
     energy_type: EnergyType,
+    source: &str,
 ) -> (Probabilities, Mutations) {
+    let source = source.to_string();
     card_search_outcomes_with_filter(acting_player, state, move |card: &&Card| {
         let type_matches = card.get_type().map(|t| t == energy_type).unwrap_or(false);
         let basic_check = !basic_only || card.is_basic();
         type_matches && basic_check
-    })
+    }, source)
 }
 
 pub(crate) fn gladion_search_outcomes(
@@ -54,17 +59,20 @@ pub(crate) fn gladion_search_outcomes(
     card_search_outcomes_with_filter(acting_player, state, move |card: &&Card| {
         let name = card.get_name();
         name == "Type: Null" || name == "Silvally"
-    })
+    }, "Gladion".to_string())
 }
 
 pub(crate) fn supporter_search_outcomes(
     acting_player: usize,
     state: &State,
+    source: &str,
 ) -> (Probabilities, Mutations) {
+    let source = source.to_string();
     card_search_outcomes_with_filter(
         acting_player,
         state,
         move |card: &&Card| matches!(card, Card::Trainer(trainer_card) if trainer_card.trainer_card_type == crate::models::TrainerType::Supporter),
+        source,
     )
 }
 
@@ -72,11 +80,12 @@ fn card_search_outcomes_with_filter<F>(
     acting_player: usize,
     state: &State,
     card_filter: F,
+    source: String,
 ) -> (Probabilities, Mutations)
 where
     F: Fn(&&Card) -> bool + Clone + 'static,
 {
-    card_search_outcomes_with_filter_multiple(acting_player, state, 1, card_filter)
+    card_search_outcomes_with_filter_multiple(acting_player, state, 1, card_filter, source)
 }
 
 /// Draw up to `num_to_draw` cards from deck that match the filter, using unordered combinations
@@ -85,6 +94,7 @@ pub(crate) fn card_search_outcomes_with_filter_multiple<F>(
     state: &State,
     num_to_draw: usize,
     card_filter: F,
+    source: String,
 ) -> (Probabilities, Mutations)
 where
     F: Fn(&&Card) -> bool + Clone + 'static,
@@ -114,10 +124,16 @@ where
     let mut outcomes: Mutations = vec![];
 
     for combo in draw_combinations {
+        let source = source.clone();
         outcomes.push(Box::new(move |rng, state, _action| {
             // Transfer each Pokemon from the combination to hand
             for pokemon in &combo {
-                state.transfer_card_from_deck_to_hand(acting_player, pokemon);
+                // It's possible the card was drawn by the turn-start draw, so we check if it's still there
+                if state.decks[acting_player].cards.contains(pokemon) {
+                    state.transfer_card_from_deck_to_hand(acting_player, pokemon, &source);
+                } else {
+                    debug!("Card {:?} not found in deck during transfer (Source: {}), might have been drawn already.", pokemon, source);
+                }
             }
 
             state.decks[acting_player].shuffle(false, rng);

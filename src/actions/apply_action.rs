@@ -501,7 +501,7 @@ fn forecast_pokemon_communication(
             // 1. Transfer hand Pokemon to deck
             state.transfer_card_from_hand_to_deck(action.actor, &hand_pokemon_clone);
             // 2. Transfer deck Pokemon to hand
-            state.transfer_card_from_deck_to_hand(action.actor, &deck_pokemon_card);
+            state.transfer_card_from_deck_to_hand(action.actor, &deck_pokemon_card, "Pokemon Communication");
             // 5. Shuffle deck
             state.decks[action.actor].shuffle(false, rng);
 

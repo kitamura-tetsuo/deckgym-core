@@ -53,7 +53,7 @@ pub fn forecast_trainer_action(
         CardId::PA001Potion => doutcome(potion_effect),
         CardId::PA002XSpeed => doutcome(x_speed_effect),
         CardId::PA005PokeBall | CardId::A2b111PokeBall => {
-            pokemon_search_outcomes(acting_player, state, true)
+            pokemon_search_outcomes(acting_player, state, true, "Poke Ball")
         }
         CardId::PA006RedCard => doutcome(red_card_effect),
         CardId::PA007ProfessorsResearch | CardId::A4b373ProfessorsResearch => {
@@ -1015,7 +1015,7 @@ fn iono_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
         outcomes.push(Box::new(move |_rng, state, action| {
             // Transfer each Pokemon from the combination to hand
             for pokemon in &combo {
-                state.transfer_card_from_deck_to_hand(action.actor, pokemon);
+                state.transfer_card_from_deck_to_hand(action.actor, pokemon, "Pokemon Communication");
             }
 
             // Queue the first shuffle decision (we need to shuffle num_to_draw times)
@@ -1055,7 +1055,7 @@ fn lisia_effect(acting_player: usize, state: &State) -> (Probabilities, Mutation
         } else {
             false
         }
-    })
+    }, "Lisia".to_string())
 }
 
 fn lucky_ice_pop_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
@@ -1143,13 +1143,13 @@ fn clemont_effect(acting_player: usize, state: &State) -> (Probabilities, Mutati
     card_search_outcomes_with_filter_multiple(acting_player, state, 2, |card| {
         let name = card.get_name();
         name == "Magneton" || name == "Heliolisk" || name == "Clemont's Backpack"
-    })
+    }, "Clemont".to_string())
 }
 
 fn serena_effect(acting_player: usize, state: &State) -> (Probabilities, Mutations) {
     // Put a random Mega Evolution Pokémon ex from your deck into your hand.
     // All Mega evolutions are ex by definition
-    card_search_outcomes_with_filter_multiple(acting_player, state, 1, |card| card.is_mega())
+    card_search_outcomes_with_filter_multiple(acting_player, state, 1, |card| card.is_mega(), "Serena".to_string())
 }
 
 fn quick_grow_extract_effect(acting_player: usize, state: &State) -> (Probabilities, Mutations) {

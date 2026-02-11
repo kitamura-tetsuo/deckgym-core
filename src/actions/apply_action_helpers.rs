@@ -44,7 +44,9 @@ pub(crate) fn forecast_end_turn(state: &State) -> (Probabilities, Mutations) {
         }
 
         let next_player = (state.current_player + 1) % 2;
-        let (start_probs, start_mutations) = start_turn_ability_outcomes(state, next_player);
+        let mut predicted_state = state.clone();
+        predicted_state.maybe_draw_card(next_player);
+        let (start_probs, start_mutations) = start_turn_ability_outcomes(&predicted_state, next_player);
 
         let mut outcomes: Mutations = Vec::with_capacity(start_mutations.len());
         for start_mutation in start_mutations {
@@ -105,7 +107,12 @@ fn forecast_pokemon_checkup(state: &State) -> (Probabilities, Mutations) {
         let paralyzed_to_handle = paralyzed_to_handle.clone();
         let poisons_to_handle = poisons_to_handle.clone();
         let burns_to_handle = burns_to_handle.clone();
-        let (start_probs, start_mutations) = start_turn_ability_outcomes(state, next_player);
+        let (start_probs, start_mutations) = {
+            let mut predicted_state = state.clone();
+            // Simulate the draw that happens after checkup but before abilities trigger
+            predicted_state.maybe_draw_card(next_player);
+            start_turn_ability_outcomes(&predicted_state, next_player)
+        };
         for (start_prob, start_mutation) in start_probs.into_iter().zip(start_mutations) {
             let sleeps_to_handle = sleeps_to_handle.clone();
             let paralyzed_to_handle = paralyzed_to_handle.clone();
@@ -152,6 +159,7 @@ fn start_turn_ability_outcomes(state: &State, player: usize) -> (Probabilities, 
                 state,
                 false,
                 *energy_type,
+                "StartTurnRandomPokemonToHand",
             )
         }
         _ => (vec![1.0], vec![noop_mutation()]),
@@ -583,5 +591,49 @@ mod tests {
         // Both missing in State::default()
         let damage = modify_damage(&state, (0, 0), (10, 1, 0), true, None);
         assert_eq!(damage, 10);
+    }
+
+    #[test]
+    fn test_meloetta_search_with_last_card_in_deck() {
+        use crate::deck::Deck;
+
+        // Meloetta: At the beginning of your turn, if this Pokémon is in the Active Spot, put a random [P] Pokémon from your deck into your hand.
+        let meloetta_card = get_card_by_enum(CardId::B2070Meloetta);
+        let played_meloetta = to_playable_card(&meloetta_card, false);
+
+        let mut deck = Deck::default();
+        deck.cards.push(meloetta_card.clone()); // Only one Meloetta in deck
+
+        let mut state = State::new(&Deck::default(), &deck);
+        state.in_play_pokemon[1][0] = Some(played_meloetta);
+        state.current_player = 0;
+        state.turn_count = 1;
+
+        // End turn 1 (player 0's turn). This will forecast the transition to turn 2 (player 1's turn).
+        // Player 1 will draw the last Meloetta from their deck at the start of turn 2.
+        // The ability should then trigger, find no [P] Pokemon in deck, and just shuffle.
+        let (probs, mut mutations) = forecast_end_turn(&state);
+
+        assert_eq!(probs.len(), 1);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+        let action = Action {
+            actor: 0,
+            action: SimpleAction::EndTurn,
+            is_stack: false,
+        };
+
+        // This should not panic
+        let mutation = mutations.pop().unwrap();
+        mutation(&mut rng, &mut state, &action);
+
+        // Verification:
+        // 1. Turn count should be 2
+        // 2. Player 1 should be current player
+        // 3. Player 1's hand should have the Meloetta drawn from deck
+        // 4. Deck should be empty
+        assert_eq!(state.turn_count, 2);
+        assert_eq!(state.current_player, 1);
+        assert!(state.hands[1].contains(&meloetta_card));
+        assert_eq!(state.decks[1].cards.len(), 0);
     }
 }

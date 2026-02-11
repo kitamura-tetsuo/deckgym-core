@@ -270,11 +270,11 @@ fn forecast_effect_attack_by_attack_id(
         AttackId::A4066PichuCracklyToss => {
             attach_energy_to_benched_basic(acting_player, EnergyType::Lightning)
         }
-        AttackId::A4077CleffaTwinklyCall => pokemon_search_outcomes(acting_player, state, false),
+        AttackId::A4077CleffaTwinklyCall => pokemon_search_outcomes(acting_player, state, false, "Cleffa Twinkly Call"),
         AttackId::A4105BinacleDualChop => {
             probabilistic_damage_attack(vec![0.25, 0.5, 0.25], vec![0, 30, 60])
         }
-        AttackId::A4134EeveeFindAFriend => pokemon_search_outcomes(acting_player, state, false),
+        AttackId::A4134EeveeFindAFriend => pokemon_search_outcomes(acting_player, state, false, "Eevee Find A Friend"),
         AttackId::A4146UrsaringSwingAround => {
             probabilistic_damage_attack(vec![0.25, 0.5, 0.25], vec![60, 80, 100])
         }
@@ -319,10 +319,10 @@ fn forecast_effect_attack_by_mechanic(
         } => energy_bench_attack(energies.clone(), *target_benched_type, state, attack),
         Mechanic::VaporeonHyperWhirlpool => vaporeon_hyper_whirlpool(state, attack.fixed_damage),
         Mechanic::SearchToHandByEnergy { energy_type } => {
-            pokemon_search_outcomes_by_type(state, false, *energy_type)
+            pokemon_search_outcomes_by_type(state, false, *energy_type, "Attack Effect (SearchToHandByEnergy)")
         }
         Mechanic::SearchToHandSupporterCard => {
-            supporter_search_outcomes(state.current_player, state)
+            supporter_search_outcomes(state.current_player, state, "Attack Effect (SearchToHandSupporterCard)")
         }
         Mechanic::SearchToBenchByName { name } => search_and_bench_by_name(state, name.clone()),
         Mechanic::InflictStatusConditions {

@@ -72,7 +72,7 @@ pub(crate) fn forecast_ability(
         AbilityId::A3a021ZeraoraThunderclapFlash => {
             panic!("Thunderclap Flash is a passive ability")
         }
-        AbilityId::A3a027ShiinoticIlluminate => pokemon_search_outcomes(action.actor, state, false),
+        AbilityId::A3a027ShiinoticIlluminate => pokemon_search_outcomes(action.actor, state, false, "Shiinotic Illuminate"),
         AbilityId::A3a062CelesteelaUltraThrusters => doutcome(celesteela_ultra_thrusters),
         AbilityId::A3b009FlareonExCombust => doutcome(combust),
         AbilityId::A3b034SylveonExHappyRibbon => panic!("Happy Ribbon cant be used on demand"),
