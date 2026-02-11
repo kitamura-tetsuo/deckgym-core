@@ -140,9 +140,13 @@ impl State {
     fn sample_energy(&self, player: usize, rng: &mut impl Rng) -> Option<EnergyType> {
         let deck_energies = &self.decks[player].energy_types;
         if deck_energies.is_empty() {
-             return None;
+            return None;
         }
-        Some(*deck_energies.choose(rng).expect("Decks should have at least 1 energy"))
+        Some(
+            *deck_energies
+                .choose(rng)
+                .expect("Decks should have at least 1 energy"),
+        )
     }
 
     pub fn get_remaining_hp(&self, player: usize, index: usize) -> u32 {
@@ -317,8 +321,6 @@ impl State {
             .filter(|(i, _)| *i != 0)
     }
 
-
-
     pub fn maybe_get_active(&self, player: usize) -> Option<&PlayedCard> {
         self.in_play_pokemon[player][0].as_ref()
     }
@@ -461,10 +463,8 @@ impl State {
     }
 
     pub fn queue_draw_action(&mut self, player: usize, amount: u8) {
-        self.move_generation_stack.push((
-            player,
-            vec![SimpleAction::DrawCard { amount }],
-        ));
+        self.move_generation_stack
+            .push((player, vec![SimpleAction::DrawCard { amount }]));
     }
 
     // =========================================================================
@@ -610,20 +610,20 @@ mod tests {
         use rand::SeedableRng;
         let (deck_a, deck_b) = load_test_decks();
         let mut state = State::new(&deck_a, &deck_b);
-        
+
         // Manually set next energy
         state.next_energies[0] = Some(EnergyType::Grass);
-        
+
         // Current energy should be None initially
         assert!(state.current_energy.is_none());
-        
+
         // Generate energy
         let mut rng = StdRng::seed_from_u64(42);
         state.generate_energy(&mut rng);
-        
+
         // Current energy should now be Grass
         assert_eq!(state.current_energy, Some(EnergyType::Grass));
-        
+
         // Next energy should have been re-sampled (not None if deck has energy)
         assert!(state.next_energies[0].is_some());
     }

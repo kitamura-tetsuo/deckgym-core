@@ -147,6 +147,8 @@ pub fn forecast_trainer_action(
         CardId::A2a075Adaman | CardId::A2a090Adaman => doutcome(adaman_effect),
         CardId::A1a067Blue | CardId::A1a081Blue => doutcome(blue_effect),
         CardId::B2149Diantha | CardId::B2190Diantha => doutcome(diantha_effect),
+        CardId::B2150Sightseer | CardId::B2191Sightseer => doutcome(sightseer_effect),
+        CardId::B2151Juggler | CardId::B2192Juggler => doutcome(juggler_effect),
         CardId::B2152Piers | CardId::B2193Piers => doutcome(piers_effect),
         CardId::B1a066ClemontsBackpack => doutcome(clemonts_backpack_effect),
         CardId::B1a068Clemont | CardId::B1a081Clemont => clemont_effect(acting_player, state),
@@ -482,6 +484,18 @@ fn adaman_effect(_: &mut StdRng, state: &mut State, action: &Action) {
 }
 
 fn piers_effect(_: &mut StdRng, state: &mut State, action: &Action) {
+    // You can use this card only if you have Galarian Obstagoon in play.
+    let actor = action.actor;
+    let has_obstagoon = state.in_play_pokemon[actor]
+        .iter()
+        .flatten()
+        .any(|p| p.get_name() == "Galarian Obstagoon");
+
+    if !has_obstagoon {
+        debug!("Piers: Galarian Obstagoon not in play, effect fails");
+        return;
+    }
+
     // Discard 2 random Energy from your opponent's Active Pokémon.
     let opponent = (action.actor + 1) % 2;
     let mut current_energies = state.get_active(opponent).attached_energy.clone();
@@ -498,6 +512,61 @@ fn piers_effect(_: &mut StdRng, state: &mut State, action: &Action) {
     if !to_discard.is_empty() {
         state.discard_from_active(opponent, &to_discard);
     }
+}
+
+fn sightseer_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
+    // Look at the top 4 cards of your deck. Put all Stage 1 Pokémon you find there into your hand. Shuffle the other cards back into your deck.
+    let actor = action.actor;
+    let mut found_pokemon = Vec::new();
+    let mut other_cards = Vec::new();
+
+    let top_cards = state.decks[actor].draw_multiple(4);
+    for card in top_cards {
+        if let Card::Pokemon(pokemon) = &card {
+            if pokemon.stage == 1 {
+                found_pokemon.push(card);
+            } else {
+                other_cards.push(card);
+            }
+        } else {
+            other_cards.push(card);
+        }
+    }
+
+    debug!("Sightseer: Found {} Stage 1 Pokemon", found_pokemon.len());
+    state.hands[actor].extend(found_pokemon);
+    state.decks[actor].cards.extend(other_cards);
+    state.decks[actor].shuffle(false, rng);
+}
+
+fn juggler_effect(_: &mut StdRng, state: &mut State, action: &Action) {
+    // You can use this card only if your Pokémon in play have 3 or more different types of Energy attached.
+    // Move all Energy from each of your Benched Pokémon to your Active Pokémon.
+    let actor = action.actor;
+    let mut energy_types = std::collections::HashSet::new();
+    for pokemon in state.in_play_pokemon[actor].iter().flatten() {
+        for energy in &pokemon.attached_energy {
+            energy_types.insert(*energy);
+        }
+    }
+
+    if energy_types.len() < 3 {
+        debug!("Juggler: Fewer than 3 energy types in play ({}), effect fails", energy_types.len());
+        return;
+    }
+
+    let mut total_moved = 0;
+    // Move from bench to active (index 0)
+    for i in 1..state.in_play_pokemon[actor].len() {
+        if let Some(pokemon) = state.in_play_pokemon[actor][i].as_mut() {
+            let energies = std::mem::take(&mut pokemon.attached_energy);
+            total_moved += energies.len();
+            if let Some(active) = state.in_play_pokemon[actor][0].as_mut() {
+                active.attached_energy.extend(energies);
+            }
+        }
+    }
+    debug!("Juggler: Moved {} energies to Active Pokemon", total_moved);
 }
 
 fn diantha_effect(_: &mut StdRng, state: &mut State, action: &Action) {

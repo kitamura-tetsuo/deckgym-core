@@ -169,6 +169,8 @@ pub fn trainer_move_generation_implementation(
         CardId::A2a075Adaman | CardId::A2a090Adaman => can_play_trainer(state, trainer_card),
         CardId::A2a074Barry | CardId::A2a089Barry => can_play_trainer(state, trainer_card),
         CardId::B2149Diantha | CardId::B2190Diantha => can_play_diantha(state, trainer_card),
+        CardId::B2150Sightseer | CardId::B2191Sightseer => can_play_sightseer(state, trainer_card),
+        CardId::B2151Juggler | CardId::B2192Juggler => can_play_juggler(state, trainer_card),
         CardId::B2152Piers | CardId::B2193Piers => can_play_piers(state, trainer_card),
         CardId::B1a066ClemontsBackpack => can_play_trainer(state, trainer_card),
         CardId::B1a068Clemont | CardId::B1a081Clemont => can_play_trainer(state, trainer_card),
@@ -572,6 +574,34 @@ fn can_play_piers(state: &State, trainer_card: &TrainerCard) -> Option<Vec<Simpl
         .unwrap_or(false);
 
     if has_obstagoon && opponent_has_energy {
+        can_play_trainer(state, trainer_card)
+    } else {
+        cannot_play_trainer()
+    }
+}
+
+fn can_play_sightseer(state: &State, trainer_card: &TrainerCard) -> Option<Vec<SimpleAction>> {
+    if !state.decks[state.current_player].cards.is_empty() {
+        can_play_trainer(state, trainer_card)
+    } else {
+        cannot_play_trainer()
+    }
+}
+
+fn can_play_juggler(state: &State, trainer_card: &TrainerCard) -> Option<Vec<SimpleAction>> {
+    let actor = state.current_player;
+    let mut energy_types = std::collections::HashSet::new();
+    for pokemon in state.in_play_pokemon[actor].iter().flatten() {
+        for energy in &pokemon.attached_energy {
+            energy_types.insert(*energy);
+        }
+    }
+
+    // Must have 3+ types AND at least one energy on bench AND an active pokemon
+    let has_energy_on_bench = state.enumerate_bench_pokemon(actor).any(|(_, p)| !p.attached_energy.is_empty());
+    let has_active = state.in_play_pokemon[actor][0].is_some();
+
+    if energy_types.len() >= 3 && has_energy_on_bench && has_active {
         can_play_trainer(state, trainer_card)
     } else {
         cannot_play_trainer()

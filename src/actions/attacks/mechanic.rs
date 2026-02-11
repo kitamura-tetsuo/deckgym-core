@@ -193,4 +193,7 @@ pub enum Mechanic {
         bench_only: bool,
     },
     UseOpponentActiveAttack,
+    DiscardHandCard {
+        count: usize,
+    },
 }

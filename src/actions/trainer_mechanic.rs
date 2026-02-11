@@ -88,6 +88,7 @@ impl CardId {
             CardId::B1226Lisia | CardId::B1271Lisia => Some(TrainerMechanic::Search { target_type: "BasicPokemonLE50HP".to_string(), amount: 2, from_zone: "Deck".to_string() }),
             CardId::A2a073CelesticTownElder | CardId::A2a088CelesticTownElder => Some(TrainerMechanic::Search { target_type: "BasicPokemon".to_string(), amount: 1, from_zone: "Discard".to_string() }),
             CardId::B1a068Clemont | CardId::B1a081Clemont => Some(TrainerMechanic::Search { target_type: "ElectricSupport".to_string(), amount: 2, from_zone: "Deck".to_string() }),
+            CardId::B2150Sightseer | CardId::B2191Sightseer => Some(TrainerMechanic::Search { target_type: "Stage1Pokemon".to_string(), amount: 4, from_zone: "Deck".to_string() }),
             CardId::B1a069Serena | CardId::B1a082Serena => Some(TrainerMechanic::Search { target_type: "MegaPokemon".to_string(), amount: 1, from_zone: "Deck".to_string() }),
 
             // --- Draw ---
@@ -137,6 +138,10 @@ impl CardId {
                 TrainerMechanic::DamageBoost { amount: 20, target_scope: TargetScope::SelfActive, against_ex: false, specific_pokemon: None },
                 TrainerMechanic::Heal { amount: 100, cure_status: false, target_scope: TargetScope::SelfBoard },
             ]}),
+
+            // B2 Trainers handled in apply_trainer_action
+            CardId::B2151Juggler | CardId::B2192Juggler => Some(TrainerMechanic::EnergyAttachment { amount: 0, energy_type: None, from_zone: "Field".to_string(), target_scope: TargetScope::SelfActive }),
+            CardId::B2152Piers | CardId::B2193Piers => Some(TrainerMechanic::DiscardTool { target_scope: TargetScope::OpponentActive }),
 
             _ => None,
         }

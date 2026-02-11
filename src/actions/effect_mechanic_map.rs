@@ -100,7 +100,10 @@ pub static EFFECT_MECHANIC_MAP: LazyLock<HashMap<&'static str, Mechanic>> = Lazy
             energies: vec![EnergyType::Fire, EnergyType::Water, EnergyType::Lightning],
         },
     );
-    // map.insert("Discard a card from your hand. If you can't, this attack does nothing.", todo_implementation);
+    map.insert(
+        "Discard a card from your hand. If you can't, this attack does nothing.",
+        Mechanic::DiscardHandCard { count: 1 },
+    );
     map.insert(
         "Discard a random Energy from among the Energy attached to all Pokémon (both yours and your opponent's).",
         Mechanic::DiscardRandomGlobalEnergy { count: 1 },

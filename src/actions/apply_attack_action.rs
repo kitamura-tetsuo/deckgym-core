@@ -539,6 +539,9 @@ fn forecast_effect_attack_by_mechanic(
             bench_only,
         } => direct_damage_per_energy_on_target(*damage_per_energy, *bench_only),
         Mechanic::UseOpponentActiveAttack => use_opponent_active_attack(state),
+        Mechanic::DiscardHandCard { count } => {
+            discard_hand_card_attack(attack.fixed_damage, *count, state)
+        }
     }
 }
 
@@ -1945,6 +1948,29 @@ fn dirty_throw_attack(acting_player: usize, state: &State) -> (Probabilities, Mu
     } else {
         // Player has cards in hand, deal 70 damage and queue discard decision
         active_damage_effect_doutcome(70, move |_, state, action| {
+            let possible_discards: Vec<SimpleAction> = state.hands[action.actor]
+                .iter()
+                .map(|card| SimpleAction::DiscardOwnCard { card: card.clone() })
+                .collect();
+
+            if !possible_discards.is_empty() {
+                state
+                    .move_generation_stack
+                    .push((action.actor, possible_discards));
+            }
+        })
+    }
+}
+
+fn discard_hand_card_attack(
+    damage: u32,
+    count: usize,
+    state: &State,
+) -> (Probabilities, Mutations) {
+    if state.hands[state.current_player].len() < count {
+        active_damage_doutcome(0)
+    } else {
+        active_damage_effect_doutcome(damage, move |_, state, action| {
             let possible_discards: Vec<SimpleAction> = state.hands[action.actor]
                 .iter()
                 .map(|card| SimpleAction::DiscardOwnCard { card: card.clone() })

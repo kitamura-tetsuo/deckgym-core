@@ -107,6 +107,18 @@ impl Deck {
         }
     }
 
+    pub fn draw_multiple(&mut self, amount: u8) -> Vec<Card> {
+        let mut drawn_cards = Vec::new();
+        for _ in 0..amount {
+            if let Some(card) = self.draw() {
+                drawn_cards.push(card);
+            } else {
+                break;
+            }
+        }
+        drawn_cards
+    }
+
     /// Shuffles the deck of cards.
     pub fn shuffle(&mut self, initial_shuffle: bool, rng: &mut impl Rng) {
         if initial_shuffle {
