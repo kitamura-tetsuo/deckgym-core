@@ -124,6 +124,7 @@ pub(crate) fn forecast_ability(
         AbilityId::A1007Butterfree | AbilityId::A2022ShayminFragrantFlowerGarden => {
             unreachable!("Handled by AbilityMechanic")
         }
+        AbilityId::A2a035RotomSpeedLink => panic!("Speed Link is a passive ability"),
     }
 }
 

@@ -6,7 +6,7 @@ use deckgym::{
 
 // Don't know a better way to eliminate the warning...
 #[allow(dead_code)]
-pub fn init_random_players() -> Vec<Box<dyn Player>> {
+pub fn init_random_players() -> Vec<Box<dyn Player + Send>> {
     let (deck_a, deck_b) = load_test_decks();
     let player_a = Box::new(RandomPlayer { deck: deck_a });
     let player_b = Box::new(RandomPlayer { deck: deck_b });
@@ -15,7 +15,7 @@ pub fn init_random_players() -> Vec<Box<dyn Player>> {
 
 // Don't know a better way to eliminate the warning...
 #[allow(dead_code)]
-pub fn init_decks(deck_a_path: &str, deck_b_path: &str) -> Vec<Box<dyn Player>> {
+pub fn init_decks(deck_a_path: &str, deck_b_path: &str) -> Vec<Box<dyn Player + Send>> {
     let deck_a = load_test_deck(deck_a_path);
     let deck_b = load_test_deck(deck_b_path);
     let player_a = Box::new(RandomPlayer { deck: deck_a });

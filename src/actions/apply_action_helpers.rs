@@ -55,7 +55,7 @@ pub(crate) fn forecast_end_turn(state: &State) -> (Probabilities, Mutations) {
                 state.turn_count = 1;
                 state.end_turn_maintenance();
                 start_mutation(rng, state, action);
-                state.queue_draw_action(state.current_player, 1);
+                state.maybe_draw_card(state.current_player);
             }));
         }
 
@@ -118,6 +118,7 @@ fn forecast_pokemon_checkup(state: &State) -> (Probabilities, Mutations) {
                 on_end_turn(action.actor, state);
 
                 apply_pokemon_checkup(
+                    rng,
                     state,
                     sleeps_to_handle.clone(),
                     paralyzed_to_handle.clone(),
@@ -192,6 +193,7 @@ fn get_poison_damage(state: &State, player: usize, in_play_idx: usize) -> u32 {
 }
 
 fn apply_pokemon_checkup(
+    rng: &mut StdRng,
     mutated_state: &mut State,
     sleeps_to_handle: Vec<(usize, usize)>,
     paralyzed_to_handle: Vec<(usize, usize)>,
@@ -271,7 +273,7 @@ fn apply_pokemon_checkup(
     mutated_state.knocked_out_by_opponent_attack_last_turn =
         mutated_state.knocked_out_by_opponent_attack_this_turn;
     mutated_state.knocked_out_by_opponent_attack_this_turn = false;
-    mutated_state.advance_turn();
+    mutated_state.advance_turn(rng);
 }
 
 fn generate_boolean_vectors(n: usize) -> Vec<Vec<bool>> {
@@ -496,11 +498,11 @@ pub(crate) fn apply_common_mutation(state: &mut State, action: &Action) {
             .expect("Pokemon should be there if using ability");
         pokemon.ability_used = true;
     }
-    if let SimpleAction::Attack(_) = &action.action {
-        state
-            .move_generation_stack
-            .push((action.actor, vec![SimpleAction::EndTurn]));
-    }
+    // if let SimpleAction::Attack(_) = &action.action {
+    //     state
+    //         .move_generation_stack
+    //         .push((action.actor, vec![SimpleAction::EndTurn]));
+    // }
 }
 
 fn noop_mutation() -> Mutation {
@@ -510,6 +512,7 @@ fn noop_mutation() -> Mutation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::SeedableRng;
     use crate::{card_ids::CardId, database::get_card_by_enum, hooks::to_playable_card};
 
     #[test]
@@ -566,7 +569,8 @@ mod tests {
         state.in_play_pokemon[0][0] = Some(played_mon);
 
         // This should not panic anymore
-        apply_pokemon_checkup(&mut state, vec![], vec![], vec![(0, 0)], vec![(0, 0)], vec![false]);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+        apply_pokemon_checkup(&mut rng, &mut state, vec![], vec![], vec![(0, 0)], vec![(0, 0)], vec![false]);
 
         // Verify the Pokemon is gone
         assert!(state.in_play_pokemon[0][0].is_none());

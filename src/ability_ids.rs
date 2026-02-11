@@ -57,6 +57,7 @@ pub enum AbilityId {
     B1a034ReuniclusInfiniteIncrease,
     B1a065FurfrouFurCoat,
     A4a032MisdreavusInfiltratingInspection,
+    A2a035RotomSpeedLink,
 }
 
 // Create a static HashMap for fast (pokemon, index) lookup
@@ -104,6 +105,7 @@ lazy_static::lazy_static! {
         m.insert("A2a 086", AbilityId::A2a071Arceus);
         m.insert("A2a 095", AbilityId::A2a071Arceus);
         m.insert("A2a 096", AbilityId::A2a071Arceus);
+        m.insert("A2a 035", AbilityId::A2a035RotomSpeedLink);
         // A2b
         m.insert("A2b 028", AbilityId::A1061PoliwrathCounterattack);
         m.insert("A2b 035", AbilityId::A2b035GiratinaExBrokenSpaceBellow);

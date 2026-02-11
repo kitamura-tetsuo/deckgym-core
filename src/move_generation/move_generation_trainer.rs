@@ -144,6 +144,8 @@ pub fn trainer_move_generation_implementation(
         | CardId::A2b090Red
         | CardId::A4b352Red
         | CardId::A4b353Red => can_play_trainer(state, trainer_card),
+
+        CardId::B2145LuckyIcePop => can_play_lucky_ice_pop(state, trainer_card),
         CardId::A3b066EeveeBag
         | CardId::A3b107EeveeBag
         | CardId::A4b308EeveeBag
@@ -184,7 +186,7 @@ pub fn trainer_move_generation_implementation(
         | CardId::A4b313OldAmber
         | CardId::B1214PlumeFossil
         | CardId::B1216CoverFossil => can_play_fossil(state, trainer_card),
-        CardId::B2145LuckyIcePop => can_play_lucky_ice_pop(state, trainer_card),
+
         // Stadium cards can always be played
         CardId::B2153TrainingArea | CardId::B2154StartingPlains | CardId::B2155PeculiarPlaza => {
             can_play_trainer(state, trainer_card)
@@ -658,11 +660,12 @@ fn can_play_team_rocket_grunt(
     }
 }
 
+/// Check if Guzma can be played (requires opponent to have at least one tool attached)
 fn can_play_guzma(state: &State, trainer_card: &TrainerCard) -> Option<Vec<SimpleAction>> {
     let opponent = (state.current_player + 1) % 2;
     let opponent_has_tool = state
         .enumerate_in_play_pokemon(opponent)
-        .any(|(_, pokemon)| pokemon.has_tool_attached());
+        .any(|(_, p)| p.has_tool_attached());
 
     if opponent_has_tool {
         can_play_trainer(state, trainer_card)
@@ -670,3 +673,4 @@ fn can_play_guzma(state: &State, trainer_card: &TrainerCard) -> Option<Vec<Simpl
         cannot_play_trainer()
     }
 }
+

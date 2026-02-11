@@ -1,106 +1,111 @@
-use common::get_initialized_game;
-use deckgym::{
-    actions::{Action, SimpleAction},
-    card_ids::CardId,
-    database::get_card_by_enum,
-    models::{Card, PlayedCard, TrainerCard},
-};
+#[cfg(test)]
+mod tests {
+    use rand::SeedableRng;
+    use deckgym::actions::{apply_action, Action, SimpleAction};
+    use deckgym::card_ids::CardId;
+    use deckgym::database::get_card_by_enum;
+    use deckgym::to_playable_card;
+    use deckgym::{Deck, State};
+    use deckgym::generate_possible_trainer_actions;
 
-mod common;
+    #[test]
+    fn test_lucky_ice_pop_healing_and_return() {
+        let mut state = State::new(&Deck::default(), &Deck::default());
+        state.turn_count = 1; // Trainers can only be played after turn 0
+        let lucky_ice_pop = get_card_by_enum(CardId::B2145LuckyIcePop);
+        let mankey = get_card_by_enum(CardId::A1141Mankey); // 60 HP
 
-fn make_lucky_ice_pop_trainer_card() -> TrainerCard {
-    match get_card_by_enum(CardId::B2145LuckyIcePop) {
-        Card::Trainer(tc) => tc,
-        _ => panic!("Expected trainer card"),
-    }
-}
+        // Setup Player 0
+        // Active: Mankey (Damage 30, HP 60 -> Remaining 30)
+        let mut played_mankey = to_playable_card(&mankey, false);
+        played_mankey.remaining_hp = 30;
+        state.in_play_pokemon[0][0] = Some(played_mankey);
 
-fn setup_damaged_active(seed: u64) -> (deckgym::Game<'static>, usize, TrainerCard) {
-    let mut game = get_initialized_game(seed);
-    let mut state = game.get_state_clone();
-    let current_player = state.current_player;
+        // Hand: Lucky Ice Pop
+        state.hands[0].push(lucky_ice_pop.clone());
 
-    // Setup: Put a damaged Bulbasaur as active (70 max HP, 50 remaining = 20 damage taken)
-    state.in_play_pokemon[current_player][0] =
-        Some(PlayedCard::from_id(CardId::A1001Bulbasaur).with_damage(20));
+        let trainer_card = match &lucky_ice_pop {
+            deckgym::models::Card::Trainer(t) => t,
+            _ => panic!("Not a trainer"),
+        };
 
-    // Add Lucky Ice Pop to hand
-    let trainer_card = make_lucky_ice_pop_trainer_card();
-    let card = Card::Trainer(trainer_card.clone());
-    state.hands[current_player].push(card);
-    game.set_state(state);
+        let actions = generate_possible_trainer_actions(&state, trainer_card);
 
-    (game, current_player, trainer_card)
-}
+        assert!(actions.is_some(), "Should be able to play Lucky Ice Pop");
+        let actions = actions.unwrap();
+        assert!(!actions.is_empty(), "Actions should not be empty");
 
-#[test]
-fn test_lucky_ice_pop_heals_active_pokemon() {
-    // Run across many seeds; every outcome should heal 20 damage
-    for seed in 0..50 {
-        let (mut game, current_player, trainer_card) = setup_damaged_active(seed);
-
-        let play_action = Action {
-            actor: current_player,
-            action: SimpleAction::Play { trainer_card },
+        // Test Logic Execution (Heal + Return on Heads)
+        let action = Action {
+            actor: 0,
+            action: SimpleAction::Play {
+                trainer_card: trainer_card.clone(),
+            },
             is_stack: false,
         };
-        game.apply_action(&play_action);
 
-        let state = game.get_state_clone();
-        let active = state.in_play_pokemon[current_player][0]
-            .as_ref()
-            .expect("Active should exist");
-        assert_eq!(
-            active.remaining_hp, 70,
-            "Seed {seed}: Active should be healed by 20 (50 -> 70)"
+        // We try seeds until verify return to hand
+        let mut found_heads = false;
+        let mut found_tails = false;
+
+        for seed in 0..100 {
+            let mut test_state = state.clone();
+            let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+
+            apply_action(&mut rng, &mut test_state, &action);
+
+            // Verify Healing
+            let active = test_state.in_play_pokemon[0][0].as_ref().unwrap();
+            assert_eq!(active.remaining_hp, 50, "Should heal 20 damage (30 -> 50)");
+
+            // Verify Return to Hand
+            let hand_size = test_state.hands[0].len();
+            let discard_size = test_state.discard_piles[0].len();
+
+            if hand_size == 1 {
+                found_heads = true;
+                assert_eq!(discard_size, 0, "Should not be in discard if returned");
+            } else {
+                found_tails = true;
+                assert_eq!(discard_size, 1, "Should be in discard if not returned");
+            }
+
+            if found_heads && found_tails {
+                break;
+            }
+        }
+
+        assert!(
+            found_heads,
+            "Should check that heads is possible (return to hand)"
         );
+        assert!(found_tails, "Should check that tails is possible (discard)");
     }
-}
 
-#[test]
-fn test_lucky_ice_pop_coin_flip_returns_to_hand_or_stays_in_discard() {
-    let mut heads_count = 0;
-    let mut tails_count = 0;
+    #[test]
+    fn test_lucky_ice_pop_cannot_play_full_hp() {
+        let mut state = State::new(&Deck::default(), &Deck::default());
+        state.turn_count = 1;
+        let lucky_ice_pop = get_card_by_enum(CardId::B2145LuckyIcePop);
+        let mankey = get_card_by_enum(CardId::A1141Mankey); // 60 HP
 
-    for seed in 0..200 {
-        let (mut game, current_player, trainer_card) = setup_damaged_active(seed);
+        // Setup Player 0
+        // Active: Mankey (Full HP)
+        let played_mankey = to_playable_card(&mankey, false);
+        state.in_play_pokemon[0][0] = Some(played_mankey);
 
-        let card = Card::Trainer(trainer_card.clone());
-        let play_action = Action {
-            actor: current_player,
-            action: SimpleAction::Play { trainer_card },
-            is_stack: false,
+        // Hand: Lucky Ice Pop
+        state.hands[0].push(lucky_ice_pop.clone());
+
+        let trainer_card = match &lucky_ice_pop {
+            deckgym::models::Card::Trainer(t) => t,
+            _ => panic!("Not a trainer"),
         };
-        game.apply_action(&play_action);
 
-        let state = game.get_state_clone();
-        let in_hand = state.hands[current_player].contains(&card);
-        let in_discard = state.discard_piles[current_player].contains(&card);
+        let actions = generate_possible_trainer_actions(&state, trainer_card);
 
-        // Card must be in exactly one of: hand or discard
-        assert!(
-            in_hand || in_discard,
-            "Seed {seed}: Card must be in hand or discard"
-        );
-        assert!(
-            !(in_hand && in_discard),
-            "Seed {seed}: Card cannot be in both hand and discard"
-        );
-
-        if in_hand {
-            heads_count += 1;
-        } else {
-            tails_count += 1;
+        if let Some(acts) = actions {
+            assert!(acts.is_empty(), "Should not be able to play if full HP");
         }
     }
-
-    // With 200 trials of a 50/50 coin flip, both outcomes should appear
-    assert!(
-        heads_count > 0,
-        "Expected at least one heads (card returned to hand) across 200 seeds"
-    );
-    assert!(
-        tails_count > 0,
-        "Expected at least one tails (card stayed in discard) across 200 seeds"
-    );
 }

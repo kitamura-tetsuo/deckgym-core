@@ -68,14 +68,23 @@ fn test_may_generates_all_combinations() {
         "Should have 3 shuffle combinations: (Pikachu,Charmander), (Pikachu,Squirtle), (Charmander,Squirtle)"
     );
 
-    // Verify each choice is a ShufflePokemonIntoDeck with 2 cards
+    // Verify each choice is a ShufflePokemonIntoDeck
     for choice in choices {
         match choice {
-            SimpleAction::ShufflePokemonIntoDeck { hand_pokemon } => {
-                assert_eq!(
-                    hand_pokemon.len(),
-                    2,
-                    "Each shuffle choice should have exactly 2 Pokemon"
+            SimpleAction::ShufflePokemonIntoDeck { hand_pokemon, amount } => {
+                // Each shuffle choice should be for shuffling 1 pokemon at a time
+                // (with amount indicating how many cards to shuffle total)
+                assert!(
+                    *amount > 0,
+                    "Shuffle amount should be positive"
+                );
+                // Verify it's a valid pokemon card from hand
+                let matching_cards: Vec<_> = state_copy.iter_hand_pokemon(0)
+                    .filter(|c| c.get_id() == hand_pokemon.get_id())
+                    .collect();
+                assert!(
+                    !matching_cards.is_empty(),
+                    "Shuffle Pokemon should be from hand"
                 );
             }
             _ => panic!("Expected ShufflePokemonIntoDeck action"),

@@ -17,7 +17,7 @@ use crate::{
 
 /// Type alias for player factory function
 pub type PlayerFactory =
-    Box<dyn Fn(Deck, Deck) -> Vec<Box<dyn crate::players::Player>> + Send + Sync>;
+    Box<dyn Fn(Deck, Deck) -> Vec<Box<dyn crate::players::Player + Send>> + Send + Sync>;
 
 /// Callbacks for simulation progress tracking
 pub struct SimulationCallbacks<F>
@@ -123,7 +123,7 @@ impl Simulation {
         num_threads: Option<usize>,
     ) -> Result<Self, Box<dyn std::error::Error>>
     where
-        F: Fn(Deck, Deck) -> Vec<Box<dyn crate::players::Player>> + Send + Sync + 'static,
+        F: Fn(Deck, Deck) -> Vec<Box<dyn crate::players::Player + Send>> + Send + Sync + 'static,
     {
         Ok(Simulation {
             deck_a,

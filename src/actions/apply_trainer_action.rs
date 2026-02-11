@@ -3,6 +3,7 @@ use std::cmp::min;
 use log::debug;
 use rand::rngs::StdRng;
 
+
 use crate::{
     actions::{
         apply_evolve,
@@ -42,8 +43,12 @@ pub fn forecast_trainer_action(
         panic!("Unsupported Trainer Tool");
     }
 
-    let trainer_id =
-        CardId::from_card_id(trainer_card.id.as_str()).expect("CardId should be known");
+    let trainer_id = CardId::from_card_id(trainer_card.id.as_str()).unwrap_or_else(|| {
+        panic!(
+            "CardId should be known for trainer: {} ({})",
+            trainer_card.name, trainer_card.id
+        )
+    });
     match trainer_id {
         CardId::PA001Potion => doutcome(potion_effect),
         CardId::PA002XSpeed => doutcome(x_speed_effect),
@@ -121,9 +126,9 @@ pub fn forecast_trainer_action(
             doutcome(silver_effect)
         }
         CardId::A3b066EeveeBag
-        | CardId::A3b107EeveeBag
         | CardId::A4b308EeveeBag
         | CardId::A4b309EeveeBag => doutcome(eevee_bag_effect),
+
         CardId::B1217FlamePatch | CardId::B1331FlamePatch => doutcome(flame_patch_effect),
         CardId::B1225Copycat | CardId::B1270Copycat => doutcome(copycat_effect),
         CardId::A2b069Iono | CardId::A2b088Iono | CardId::A4b340Iono | CardId::A4b341Iono => {
@@ -149,14 +154,17 @@ pub fn forecast_trainer_action(
             quick_grow_extract_effect(acting_player, state)
         }
         CardId::B1a069Serena | CardId::B1a082Serena => serena_effect(acting_player, state),
-        CardId::B2145LuckyIcePop => lucky_ice_pop_outcomes(),
+        CardId::B2145LuckyIcePop => doutcome(lucky_ice_pop_effect),
         CardId::A4156Will | CardId::A4196Will => doutcome(will_effect),
         CardId::A3151Guzma | CardId::A3193Guzma | CardId::A3208Guzma => doutcome(guzma_effect),
         // Stadium cards
         CardId::B2153TrainingArea | CardId::B2154StartingPlains | CardId::B2155PeculiarPlaza => {
             doutcome(stadium_effect)
         }
-        _ => panic!("Unsupported Trainer Card"),
+        _ => panic!(
+            "Unsupported Trainer Card: {} ({})",
+            trainer_card.name, trainer_card.id
+        ),
     }
 }
 
@@ -264,37 +272,7 @@ fn potion_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
     inner_healing_effect(rng, state, action, 20, None);
 }
 
-fn lucky_ice_pop_outcomes() -> (Probabilities, Mutations) {
-    let probabilities = vec![0.5, 0.5];
-    let mut outcomes: Mutations = vec![];
 
-    // Heads: heal 20 + return card from discard to hand
-    outcomes.push(Box::new(|_, state: &mut State, action: &Action| {
-        if let Some(active) = state.in_play_pokemon[action.actor][0].as_mut() {
-            active.heal(20);
-        }
-        // Card was already discarded by apply_common_mutation, move it back to hand
-        if let SimpleAction::Play { trainer_card } = &action.action {
-            let card = Card::Trainer(trainer_card.clone());
-            if let Some(pos) = state.discard_piles[action.actor]
-                .iter()
-                .position(|c| *c == card)
-            {
-                state.discard_piles[action.actor].remove(pos);
-                state.hands[action.actor].push(card);
-            }
-        }
-    }));
-
-    // Tails: heal 20 only (card stays in discard via apply_common_mutation)
-    outcomes.push(Box::new(|_, state: &mut State, action: &Action| {
-        if let Some(active) = state.in_play_pokemon[action.actor][0].as_mut() {
-            active.heal(20);
-        }
-    }));
-
-    (probabilities, outcomes)
-}
 
 fn team_rocket_grunt_outcomes() -> (Probabilities, Mutations) {
     // Flip a coin until you get tails. For each heads, discard a random Energy from opponent's Active Pokémon.
@@ -944,7 +922,7 @@ fn iono_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
     }
 }
 
-pub fn may_effect(acting_player: usize, state: &State) -> (Probabilities, Mutations) {
+    pub fn may_effect(acting_player: usize, state: &State) -> (Probabilities, Mutations) {
     // Put 2 random Pokémon from your deck into your hand.
     // For each Pokémon you put into your hand in this way, choose a Pokémon to shuffle from your hand into your deck.
     let deck_pokemon: Vec<Card> = state.iter_deck_pokemon(acting_player).cloned().collect();
@@ -959,33 +937,11 @@ pub fn may_effect(acting_player: usize, state: &State) -> (Probabilities, Mutati
     // For drawing 2 Pokemon, we need to generate all possible pairs
     // Each outcome draws 2 different Pokemon (or fewer if not enough in deck)
     let num_to_draw = min(2, num_pokemon);
-    if num_to_draw == 1 {
-        // Only 1 Pokemon in deck - simple case
-        let probabilities = vec![1.0];
-        let mut outcomes: Mutations = vec![];
-        outcomes.push(Box::new(move |_rng, state, action| {
-            let pokemon = state
-                .iter_deck_pokemon(action.actor)
-                .next()
-                .cloned()
-                .expect("Pokemon should be in deck");
-            state.transfer_card_from_deck_to_hand(action.actor, &pokemon);
-            // Queue shuffling that Pokemon back into deck
-            state.move_generation_stack.push((
-                action.actor,
-                vec![SimpleAction::ShufflePokemonIntoDeck {
-                    hand_pokemon: vec![pokemon],
-                }],
-            ));
-        }));
-        return (probabilities, outcomes);
-    }
-
-    // Drawing 2 Pokemon - generate all possible unordered combinations
     let draw_combinations = generate_combinations(&deck_pokemon, num_to_draw);
     let num_outcomes = draw_combinations.len();
     let probabilities = vec![1.0 / (num_outcomes as f64); num_outcomes];
     let mut outcomes: Mutations = vec![];
+    
     for combo in draw_combinations {
         outcomes.push(Box::new(move |_rng, state, action| {
             // Transfer each Pokemon from the combination to hand
@@ -993,22 +949,33 @@ pub fn may_effect(acting_player: usize, state: &State) -> (Probabilities, Mutati
                 state.transfer_card_from_deck_to_hand(action.actor, pokemon);
             }
 
-            // Generate all possible 2-combinations of Pokemon in hand to shuffle back
-            let hand_pokemon: Vec<Card> = state.iter_hand_pokemon(action.actor).cloned().collect();
-            let combinations = generate_combinations(&hand_pokemon, num_to_draw);
-            let shuffle_choices: Vec<SimpleAction> = combinations
-                .into_iter()
-                .map(|combo| SimpleAction::ShufflePokemonIntoDeck {
-                    hand_pokemon: combo,
-                })
-                .collect();
-            state
-                .move_generation_stack
-                .push((action.actor, shuffle_choices));
+            // Queue the first shuffle decision (we need to shuffle num_to_draw times)
+            generate_shuffle_choices(action.actor, state, num_to_draw);
         }));
     }
 
     (probabilities, outcomes)
+}
+
+fn generate_shuffle_choices(player: usize, state: &mut State, amount: usize) {
+    let hand_pokemon: Vec<Card> = state.iter_hand_pokemon(player).cloned().collect();
+    
+    // If no pokemon in hand (shouldn't happen given we just drew), nothing to shuffle
+    if hand_pokemon.is_empty() {
+        return;
+    }
+
+    let shuffle_choices: Vec<SimpleAction> = hand_pokemon
+        .into_iter()
+        .map(|card| SimpleAction::ShufflePokemonIntoDeck {
+            hand_pokemon: card,
+            amount,
+        })
+        .collect();
+    
+    state
+        .move_generation_stack
+        .push((player, shuffle_choices));
 }
 
 fn lisia_effect(acting_player: usize, state: &State) -> (Probabilities, Mutations) {
@@ -1020,6 +987,41 @@ fn lisia_effect(acting_player: usize, state: &State) -> (Probabilities, Mutation
             false
         }
     })
+}
+
+fn lucky_ice_pop_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
+    let player = action.actor;
+    let mut healed_any = false;
+
+    if let Some(active_pokemon) = state.in_play_pokemon[player][0].as_mut() {
+        let old_hp = active_pokemon.remaining_hp;
+        active_pokemon.heal(20);
+        if active_pokemon.remaining_hp > old_hp {
+            healed_any = true;
+        }
+    }
+
+    if healed_any {
+        use rand::Rng; // Ensure Rng trait is in scope or use rng.gen_bool directly if available
+        // StdRng usually implements Rng
+        if rng.gen_bool(0.5) {
+            debug!("Lucky Ice Pop: Heads! Returning to hand.");
+            // Retrieve from discard pile
+            let discard_pile = &mut state.discard_piles[player];
+            // It should be the last card added
+            if let Some(card) = discard_pile.pop() {
+                     // We can double check it's the right card to be safe, but it should be.
+                     // A strict check logic might be hard if we don't have the card instance easily comparable
+                     // but we can check ID.
+                     if card.get_id() == "B2 145" {
+                         state.hands[player].push(card);
+                     } else {
+                         // Fallback, put it back
+                         discard_pile.push(card);
+                     }
+            }
+        }
+    }
 }
 
 fn celestic_town_elder_effect(acting_player: usize, state: &State) -> (Probabilities, Mutations) {
@@ -1110,3 +1112,7 @@ fn quick_grow_extract_effect(acting_player: usize, state: &State) -> (Probabilit
 
     (probabilities, outcomes)
 }
+
+
+
+

@@ -19,8 +19,23 @@ fn test_weedle_multiply_attack() {
     state.current_player = 0;
 
     // Set up player 0 with Weedle in active position
-    state.in_play_pokemon[0][0] =
-        Some(PlayedCard::from_card(&weedle_card).with_energy(vec![EnergyType::Grass]));
+    let active_weedle = PlayedCard::new(
+        weedle_card.clone(),
+        50,                      // remaining_hp
+        50,                      // total_hp
+        vec![EnergyType::Grass], // Has 1 Grass energy to use Multiply
+        false,
+        vec![],
+    );
+    state.in_play_pokemon[0][0] = Some(active_weedle);
+
+    // Clear bench to ensure clean state for test
+    for i in 1..4 { // Standard bench size is 3 + active at 0
+        // Safe access or just use direct indexing if known size
+        if i < state.in_play_pokemon[0].len() {
+             state.in_play_pokemon[0][i] = None;
+        }
+    }
 
     // Add another Weedle to the deck
     state.decks[0].cards.push(weedle_card.clone());

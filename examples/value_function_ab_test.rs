@@ -98,7 +98,7 @@ fn run_comparison(config: ComparisonConfig) -> Result<Vec<DeckStats>, Box<dyn st
         let test_fn = value_functions::variant_value_function;
         let depth = config.depth;
 
-        let player_factory = move |deck_a: Deck, deck_b: Deck| -> Vec<Box<dyn Player>> {
+        let player_factory = move |deck_a: Deck, deck_b: Deck| -> Vec<Box<dyn Player + Send>> {
             vec![
                 Box::new(ExpectiMiniMaxPlayer {
                     deck: deck_a,

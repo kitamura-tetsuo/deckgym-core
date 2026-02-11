@@ -8,6 +8,7 @@ pub mod combinatorics;
 pub mod database;
 pub mod deck;
 pub mod effects;
+pub mod encoding;
 pub mod example_utils;
 pub mod game;
 pub mod gameplay_stats_collector;
@@ -38,18 +39,18 @@ pub use simulate::{simulate, Simulation, SimulationCallbacks};
 pub use simulation_event_handler::ComputedStats;
 pub use state::State;
 
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "test-python"))]
 pub mod python_bindings;
 
 #[cfg(feature = "tui")]
 pub mod tui;
 
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "test-python"))]
 use pyo3::prelude::*;
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "test-python"))]
 use pyo3::types::PyModule;
 
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "test-python"))]
 #[pymodule]
 fn deckgym(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     python_bindings::deckgym(py, m)

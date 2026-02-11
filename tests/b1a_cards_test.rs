@@ -526,14 +526,6 @@ fn test_mega_steelix_adamantine_rolling_no_weakness() {
 
     game.apply_action(&steelix_attack);
 
-    // End turn to switch to player 1
-    let end_turn = Action {
-        actor: 0,
-        action: SimpleAction::EndTurn,
-        is_stack: false,
-    };
-    game.apply_action(&end_turn);
-
     let state = game.get_state_clone();
     let steelix_hp_before = state.get_active(0).remaining_hp;
 

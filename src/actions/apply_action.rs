@@ -71,8 +71,8 @@ pub fn forecast_action(state: &State, action: &Action) -> (Probabilities, Mutati
         SimpleAction::CommunicatePokemon { hand_pokemon } => {
             forecast_pokemon_communication(action.actor, state, hand_pokemon)
         }
-        SimpleAction::ShufflePokemonIntoDeck { hand_pokemon } => {
-            forecast_shuffle_pokemon_into_deck(action.actor, hand_pokemon)
+        SimpleAction::ShufflePokemonIntoDeck { hand_pokemon, amount } => {
+            forecast_shuffle_pokemon_into_deck(action.actor, state, hand_pokemon, *amount)
         }
         SimpleAction::ShuffleOpponentSupporter { supporter_card } => {
             forecast_shuffle_opponent_supporter(action.actor, supporter_card)
@@ -92,12 +92,46 @@ pub fn forecast_action(state: &State, action: &Action) -> (Probabilities, Mutati
     };
 
     let mut wrapped_mutations: Mutations = vec![];
+    let is_attack = matches!(&action.action, SimpleAction::Attack(_));
+
     for original_mutation in mutas {
         let mutation_closure: Mutation = Box::new(original_mutation);
-        wrapped_mutations.push(Box::new(move |rng, state, action| {
-            apply_common_mutation(state, action);
-            mutation_closure(rng, state, action);
-        }));
+        if is_attack {
+            wrapped_mutations.push(Box::new(move |rng, state, action| {
+                apply_common_mutation(state, action);
+                mutation_closure(rng, state, action);
+
+                // Auto-End Turn Logic
+                if state.move_generation_stack.is_empty() && !state.is_game_over() {
+                    let (et_probs, mut et_mutations) = forecast_end_turn(state);
+                    // Use a new RNG seeded from the main one for the distribution to avoid borrowing issues if any
+                    // But WeightedIndex construction doesn't use RNG. sample does.
+                    // We can reuse `rng`.
+                    let dist = WeightedIndex::new(&et_probs).unwrap();
+                    let chosen_index = dist.sample(rng);
+                    
+                    // Construct a temporary action for the EndTurn logic
+                    let end_turn_action = Action {
+                         actor: action.actor,
+                         action: SimpleAction::EndTurn,
+                         is_stack: false, 
+                    };
+                    
+                    et_mutations.remove(chosen_index)(rng, state, &end_turn_action);
+                } else {
+                    // If there are forced actions (e.g. SelectActive due to KO),
+                    // we cannot auto-end turn yet. We must queue EndTurn to happen
+                    // after the forced actions are resolved.
+                    // We insert at 0 (bottom of stack) so it happens last.
+                    state.move_generation_stack.insert(0, (action.actor, vec![SimpleAction::EndTurn]));
+                }
+            }));
+        } else {
+            wrapped_mutations.push(Box::new(move |rng, state, action| {
+                apply_common_mutation(state, action);
+                mutation_closure(rng, state, action);
+            }));
+        }
     }
     (proba, wrapped_mutations)
 }
@@ -483,17 +517,42 @@ fn forecast_pokemon_communication(
 
 fn forecast_shuffle_pokemon_into_deck(
     acting_player: usize,
-    hand_pokemon: &[Card],
+    _state: &State,
+    hand_pokemon: &Card,
+    amount_left: usize,
 ) -> (Probabilities, Mutations) {
-    let pokemon_list = hand_pokemon.to_vec();
+    let pokemon = hand_pokemon.clone();
     (
         vec![1.0],
-        vec![Box::new(move |rng, state, _action| {
-            for pokemon in &pokemon_list {
-                state.transfer_card_from_hand_to_deck(acting_player, pokemon);
+        vec![Box::new(move |_rng, state, _action| {
+            state.transfer_card_from_hand_to_deck(acting_player, &pokemon);
+            
+            if amount_left > 1 {
+                // We need to shuffle more
+                debug!("May: Shuffled {:?} from hand into deck, choosing next...", pokemon);
+                // We don't shuffle the deck yet.
+                // Generate choices for the next one
+                let remaining = amount_left - 1;
+                let hand_pokemon: Vec<Card> = state.iter_hand_pokemon(acting_player).cloned().collect();
+                if !hand_pokemon.is_empty() {
+                     let shuffle_choices: Vec<SimpleAction> = hand_pokemon
+                        .into_iter()
+                        .map(|card| SimpleAction::ShufflePokemonIntoDeck {
+                            hand_pokemon: card,
+                            amount: remaining,
+                        })
+                        .collect();
+                    state.move_generation_stack.push((acting_player, shuffle_choices));
+                } else {
+                     // No more pokemon to shuffle, so we are done?
+                     // If we were supposed to shuffle 2 but only had 1, we stop.
+                     state.decks[acting_player].shuffle(false, _rng);
+                }
+            } else {
+                // Done
+                state.decks[acting_player].shuffle(false, _rng);
+                debug!("May: Shuffled {:?} from hand into deck (done)", pokemon);
             }
-            state.decks[acting_player].shuffle(false, rng);
-            debug!("May: Shuffled {:?} from hand into deck", pokemon_list);
         })],
     )
 }

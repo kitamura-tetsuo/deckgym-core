@@ -41,8 +41,9 @@ fn can_use_ability(state: &State, (in_play_index, card): (usize, &PlayedCard)) -
     let is_active = in_play_index == 0;
     let ability = AbilityId::from_pokemon_id(&card.card.get_id()[..]).unwrap_or_else(|| {
         panic!(
-            "Ability seems not implemented for card: {}",
-            card.card.get_full_identity()
+            "Ability seems not implemented for card: {} ({})",
+            card.card.get_name(),
+            card.card.get_id()
         )
     });
     match ability {
@@ -106,6 +107,7 @@ fn can_use_ability(state: &State, (in_play_index, card): (usize, &PlayedCard)) -
         AbilityId::A1007Butterfree | AbilityId::A2022ShayminFragrantFlowerGarden => {
             unreachable!("Handled by AbilityMechanic")
         }
+        AbilityId::A2a035RotomSpeedLink => false, // Passive ability
     }
 }
 
