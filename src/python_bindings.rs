@@ -13,7 +13,7 @@ use crate::{
     models::{Ability, Attack, Card, EnergyType, PlayedCard},
     players::{create_players, fill_code_array, parse_player_code, PlayerCode, RandomPlayer},
     state::{GameOutcome, State},
-    actions::{Action, SimpleAction, EFFECT_MECHANIC_MAP, trainer_mechanic::TrainerMechanic},
+    actions::{Action, SimpleAction, EFFECT_MECHANIC_MAP, trainer_mechanic::TrainerMechanic, get_ability_mechanic},
     actions::attacks::Mechanic,
 };
 
@@ -224,6 +224,17 @@ impl PyCard {
     fn trainer_mechanic_info(&self, py: Python) -> Option<PyObject> {
         let card_id = self.card.get_card_id();
         let mechanic = card_id.get_trainer_mechanic()?;
+        let json_str = serde_json::to_string(&mechanic).ok()?;
+        let json_module = py.import_bound("json").ok()?;
+        json_module
+            .call_method1("loads", (json_str,))
+            .ok()
+            .map(|v| v.to_object(py))
+    }
+
+    #[getter]
+    fn ability_mechanic_info(&self, py: Python) -> Option<PyObject> {
+        let mechanic = get_ability_mechanic(&self.card)?;
         let json_str = serde_json::to_string(&mechanic).ok()?;
         let json_module = py.import_bound("json").ok()?;
         json_module
