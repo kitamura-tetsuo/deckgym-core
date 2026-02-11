@@ -515,12 +515,12 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
                 energies[energy_type_to_index(*e)] += 1.0;
             }
             obs.extend(energies);
-            // Card ID One-Hot
-            let mut card_vec = vec![0.0; card_count];
+            // Card ID (as f32)
             if let Some(cid) = CardId::from_card_id(&p.card.get_id()) {
-                card_vec[cid as usize] = 1.0;
+                obs.push(cid as usize as f32);
+            } else {
+                obs.push(-1.0);
             }
-            obs.extend(card_vec);
             // Status
             obs.push(if p.poisoned { 1.0 } else { 0.0 });
             obs.push(if p.asleep { 1.0 } else { 0.0 });
@@ -550,7 +550,7 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
             // Empty slot
             obs.push(0.0); // HP
             obs.extend(vec![0.0; ENERGY_TYPES_COUNT]); // Energy
-            obs.extend(vec![0.0; card_count]); // Card ID
+            obs.push(-1.0); // Card ID
             obs.extend(vec![0.0; 5]); // Status (poisoned, asleep, paralyzed, confused, burned)
             obs.push(0.0); // played_this_turn
             obs.push(0.0); // ability_used
@@ -575,58 +575,46 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
         encode_pokemon(state.in_play_pokemon[1 - player][i].as_ref(), &mut obs);
     }
 
-    // 7. Hand (Bag of Cards)
-    let mut hand_vec = vec![0.0; card_count];
+    // 7. Hand Slots (Fixed size: 10)
+    let hand_slots_limit = 10;
+    let mut hand_slots = vec![-1.0; hand_slots_limit];
     if !public_only {
-        for card in &state.hands[player] {
+        for (i, card) in state.hands[player].iter().take(hand_slots_limit).enumerate() {
             if let Some(cid) = CardId::from_card_id(&card.get_id()) {
-                hand_vec[cid as usize] += 1.0;
+                hand_slots[i] = cid as usize as f32;
             }
         }
     }
-    obs.extend(hand_vec);
+    obs.extend(hand_slots);
 
-    // 8. Opponent Hand (Bag of Cards) - Always masked (zeros)
-    // This slot is reserved for symmetry or potential future use, ensuring fixed schema.
-    let opp_hand_vec = vec![0.0; card_count];
-    obs.extend(opp_hand_vec);
+    // 8. Opponent Hand (Masked/Empty)
+    // Removed opp_hand_vec to save space. We could add slots here if revealed.
 
     // 9. Deck Count
     obs.push(state.decks[player].cards.len() as f32);
     obs.push(state.decks[1 - player].cards.len() as f32);
 
-    // 9.1 Deck (Bag of Cards) - NEW
-    let mut deck_vec = vec![0.0; card_count];
-    if !public_only {
-        for card in &state.decks[player].cards {
-            if let Some(cid) = CardId::from_card_id(&card.get_id()) {
-                deck_vec[cid as usize] += 1.0;
-            }
-        }
-    }
-    obs.extend(deck_vec);
+    // 9.1 Deck (Bag of Cards) - Removed to save space
+    // We keep the deck counts above (lines 595-596).
 
-    // 9.2 Opponent Deck (Bag of Cards) - Always masked
-    let opp_deck_vec = vec![0.0; card_count];
-    obs.extend(opp_deck_vec);
-
-    // 10. Discard (Bag of Cards)
-    let mut discard_vec = vec![0.0; card_count];
-    for card in &state.discard_piles[player] {
+    // 10. Discard Slots (Fixed size: 10)
+    let discard_slots_limit = 10;
+    let mut discard_slots = vec![-1.0; discard_slots_limit];
+    for (i, card) in state.discard_piles[player].iter().rev().take(discard_slots_limit).enumerate() {
         if let Some(cid) = CardId::from_card_id(&card.get_id()) {
-            discard_vec[cid as usize] += 1.0;
+            discard_slots[i] = cid as usize as f32;
         }
     }
-    obs.extend(discard_vec);
+    obs.extend(discard_slots);
 
-    // 11. Opponent discard
-    let mut op_discard_vec = vec![0.0; card_count];
-    for card in &state.discard_piles[1 - player] {
+    // 11. Opponent Discard Slots (Fixed size: 10)
+    let mut op_discard_slots = vec![-1.0; discard_slots_limit];
+    for (i, card) in state.discard_piles[1 - player].iter().rev().take(discard_slots_limit).enumerate() {
         if let Some(cid) = CardId::from_card_id(&card.get_id()) {
-            op_discard_vec[cid as usize] += 1.0;
+            op_discard_slots[i] = cid as usize as f32;
         }
     }
-    obs.extend(op_discard_vec);
+    obs.extend(op_discard_slots);
 
     obs
 }
