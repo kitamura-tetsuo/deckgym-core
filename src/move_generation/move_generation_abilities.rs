@@ -30,7 +30,8 @@ fn can_use_ability(state: &State, (in_play_index, card): (usize, &PlayedCard)) -
     let is_active = in_play_index == 0;
     let ability = AbilityId::from_pokemon_id(&card.card.get_id()[..]).unwrap_or_else(|| {
         panic!(
-            "Ability seems not implemented for card ID: {}",
+            "Ability seems not implemented for card: {} ({})",
+            card.card.get_name(),
             card.card.get_id()
         )
     });

@@ -33,8 +33,12 @@ pub fn forecast_trainer_action(
     state: &State,
     trainer_card: &TrainerCard,
 ) -> (Probabilities, Mutations) {
-    let trainer_id =
-        CardId::from_card_id(trainer_card.id.as_str()).expect("CardId should be known");
+    let trainer_id = CardId::from_card_id(trainer_card.id.as_str()).unwrap_or_else(|| {
+        panic!(
+            "CardId should be known for trainer: {} ({})",
+            trainer_card.name, trainer_card.id
+        )
+    });
     match trainer_id {
         CardId::PA001Potion => doutcome(potion_effect),
         CardId::PA002XSpeed => doutcome(x_speed_effect),
@@ -144,7 +148,10 @@ pub fn forecast_trainer_action(
             quick_grow_extract_effect(acting_player, state)
         }
         CardId::B1a069Serena | CardId::B1a082Serena => serena_effect(acting_player, state),
-        _ => panic!("Unsupported Trainer Card"),
+        _ => panic!(
+            "Unsupported Trainer Card: {} ({})",
+            trainer_card.name, trainer_card.id
+        ),
     }
 }
 
