@@ -3,5 +3,5 @@
     "tui",
     "python"
   ],
-  "lldb.cargo": "/home/node/.cargo/bin/cargo"
+  "lldb.cargo": "/home/ubuntu/.cargo/bin/cargo"
 }
