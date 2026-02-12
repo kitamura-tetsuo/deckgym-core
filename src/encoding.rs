@@ -56,7 +56,7 @@ fn get_action_slots() -> Vec<ActionSlot> {
         ActionSlot { name: "DiscardFossil", size: 4 },
         ActionSlot { name: "Heal", size: 4 },
         ActionSlot { name: "MoveAllDamage", size: 16 }, // 4 * 4 (from x to y)
-        ActionSlot { name: "ApplyDamage", size: 1 }, // Deterministic action, single slot
+        ActionSlot { name: "ApplyDamage", size: 4 }, // Target Active (0) or Bench (1-3)
         ActionSlot { name: "HealAndDiscardEnergy", size: 4 },
         ActionSlot { name: "ReturnPokemonToHand", size: 4 },
         ActionSlot { name: "UseOpponentAttack", size: 3 },
@@ -106,7 +106,7 @@ fn get_offset_heal_eevee() -> usize { get_slot_offset("HealAllEeveeEvolutions") 
 fn get_offset_discard_fossil() -> usize { get_slot_offset("DiscardFossil") }
 fn get_offset_heal() -> usize { get_slot_offset("Heal") }
 fn get_offset_move_damage() -> usize { get_slot_offset("MoveAllDamage") }
-fn get_offset_apply_damage() -> usize { get_slot_offset("ApplyDamage") }
+pub fn get_offset_apply_damage() -> usize { get_slot_offset("ApplyDamage") }
 fn get_offset_heal_discard() -> usize { get_slot_offset("HealAndDiscardEnergy") }
 fn get_offset_return_hand() -> usize { get_slot_offset("ReturnPokemonToHand") }
 fn get_offset_use_opp_attack() -> usize { get_slot_offset("UseOpponentAttack") }
@@ -262,10 +262,16 @@ pub fn encode_action(action: &SimpleAction) -> Option<usize> {
                  None
              }
         },
-        SimpleAction::ApplyDamage { .. } => {
-            // ApplyDamage is deterministic but may appear in legal_actions.
-            // Now has its own dedicated slot.
-            Some(get_offset_apply_damage())
+        SimpleAction::ApplyDamage { targets, .. } => {
+            if let Some((_, _, in_play_idx)) = targets.first() {
+                if *in_play_idx < 4 {
+                    Some(get_offset_apply_damage() + in_play_idx)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
         }
         SimpleAction::HealAndDiscardEnergy { in_play_idx, .. } => {
             if *in_play_idx < 4 {
@@ -428,10 +434,10 @@ pub fn action_name(id: usize) -> String {
         let from = val / 4;
         return format!("MoveAllDamage(from:{}, to:{})", from, to);
     }
-    if id == offset_apply_damage {
-        return "ApplyDamage".to_string();
-    }
     let offset_heal_discard = get_offset_heal_discard();
+    if (offset_apply_damage..offset_heal_discard).contains(&id) {
+        return format!("ApplyDamage({})", id - offset_apply_damage);
+    }
     let offset_return_hand = get_offset_return_hand();
     let offset_use_opp_attack = get_offset_use_opp_attack();
     
