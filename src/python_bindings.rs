@@ -86,6 +86,11 @@ impl PyAttack {
     }
 
     #[getter]
+    fn cost(&self) -> Vec<PyEnergyType> {
+        self.energy_required()
+    }
+
+    #[getter]
     fn mechanic_info(&self, py: Python) -> Option<PyObject> {
         let effect_text = self.attack.effect.as_deref()?;
         let mechanic = EFFECT_MECHANIC_MAP.get(effect_text)?;
@@ -1280,12 +1285,13 @@ impl PyBatchedSimulator {
     }
 
     #[pyo3(signature = (seed=None, deck_ids_1=None, deck_ids_2=None))]
-    pub fn reset(
+    pub fn reset<'py>(
         &mut self, 
+        py: Python<'py>,
         seed: Option<u64>, 
         deck_ids_1: Option<Vec<String>>, 
         deck_ids_2: Option<Vec<String>>
-    ) -> PyResult<(Vec<Vec<f32>>, Vec<usize>)> {
+    ) -> PyResult<(Py<numpy::PyArray2<f32>>, Py<numpy::PyArray1<usize>>, Py<numpy::PyArray2<f32>>)> {
         self.games.clear();
         let mut rng = if let Some(s) = seed {
             rand::rngs::StdRng::seed_from_u64(s)
@@ -1342,15 +1348,46 @@ impl PyBatchedSimulator {
             self.games.push(Game::new(players, game_seed));
         }
 
-        let obs: Vec<Vec<f32>> = self.games.iter()
-            .map(|game| encoding::encode_observation(game.state(), game.state().current_player))
-            .collect();
-        
-        let current_players: Vec<usize> = self.games.iter()
-            .map(|game| game.state().current_player)
-            .collect();
-        
-        Ok((obs, current_players))
+        let action_space_size = encoding::get_action_space_size();
+        let obs_dim = if !self.games.is_empty() {
+            encoding::observation_length(&self.games[0].state())
+        } else {
+            0
+        };
+
+        let py_obs = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, obs_dim], false);
+        let py_cp = numpy::PyArray1::<usize>::zeros_bound(py, [self.batch_size], false);
+        let py_mask = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, action_space_size], false);
+
+        {
+            let mut obs_view = py_obs.try_readwrite().unwrap();
+            let mut cp_view = py_cp.try_readwrite().unwrap();
+            let mut mask_view = py_mask.try_readwrite().unwrap();
+
+            let obs_slice = obs_view.as_slice_mut().unwrap();
+            let cp_slice = cp_view.as_slice_mut().unwrap();
+            let mask_slice = mask_view.as_slice_mut().unwrap();
+
+            for (i, game) in self.games.iter().enumerate() {
+                let current_obs = encoding::encode_observation(game.state(), game.state().current_player);
+                let start = i * obs_dim;
+                obs_slice[start..start + obs_dim].copy_from_slice(&current_obs);
+
+                cp_slice[i] = game.state().current_player;
+
+                let (_, legal_actions) = generate_possible_actions(game.state());
+                let mask_start = i * action_space_size;
+                for action in legal_actions {
+                    if let Some(id) = encoding::encode_action(&action.action) {
+                        if id < action_space_size {
+                            mask_slice[mask_start + id] = 1.0;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok((py_obs.unbind(), py_cp.unbind(), py_mask.unbind()))
     }
 
     // Returns (obs, rewards, dones, timed_out, valid_mask)
@@ -1509,6 +1546,7 @@ impl PyBatchedSimulator {
         Py<numpy::PyArray1<usize>>,
         Py<numpy::PyArray1<f32>>,
         Py<numpy::PyArray1<usize>>,
+        Py<numpy::PyArray2<f32>>,
     )> {
         // ... (lines 1417-1569 are unchanged) ...
         let logits_array = logits.as_array();
@@ -1544,18 +1582,18 @@ impl PyBatchedSimulator {
                             0,
                             0.0,
                             game.state().current_player,
+                            vec![0.0; encoding::get_action_space_size()],
                         );
                     }
 
                     let state_before = game.state().clone();
                     let points_before = state_before.points;
 
-                    let (actor, legal_actions) = generate_possible_actions(game.state());
-
                     let mut sampled_action_id = 0;
                     let mut sampled_action: Option<Action> = None;
                     let mut sampled_log_prob = 0.0;
 
+                    let (actor, legal_actions) = generate_possible_actions(game.state());
                     let mut filtered_probs = Vec::with_capacity(legal_actions.len());
                     let mut filtered_action_ids = Vec::with_capacity(legal_actions.len());
 
@@ -1647,6 +1685,20 @@ impl PyBatchedSimulator {
                             }
                         }
 
+                        // Get mask for next state
+                        let action_space_size = encoding::get_action_space_size();
+                        let mut mask_after = vec![0.0; action_space_size];
+                        if !done {
+                            let (_, next_legal_actions) = generate_possible_actions(game.state());
+                            for action in next_legal_actions {
+                                if let Some(id) = encoding::encode_action(&action.action) {
+                                    if id < action_space_size {
+                                        mask_after[id] = 1.0;
+                                    }
+                                }
+                            }
+                        }
+
                         (
                             encoding::encode_observation(game.state(), game.state().current_player),
                             r,
@@ -1656,8 +1708,21 @@ impl PyBatchedSimulator {
                             sampled_action_id,
                             sampled_log_prob,
                             game.state().current_player,
+                            mask_after,
                         )
                     } else {
+                        // Get mask for current state (still current if couldn't step)
+                        let action_space_size = encoding::get_action_space_size();
+                        let mut mask_after = vec![0.0; action_space_size];
+                        let (_, next_legal_actions) = generate_possible_actions(game.state());
+                        for action in next_legal_actions {
+                            if let Some(id) = encoding::encode_action(&action.action) {
+                                if id < action_space_size {
+                                    mask_after[id] = 1.0;
+                                }
+                            }
+                        }
+
                         (
                             encoding::encode_observation(game.state(), game.state().current_player),
                             0.0,
@@ -1667,6 +1732,7 @@ impl PyBatchedSimulator {
                             0,
                             0.0,
                             game.state().current_player,
+                            mask_after,
                         )
                     }
                 })
@@ -1696,6 +1762,8 @@ impl PyBatchedSimulator {
         let py_act = numpy::PyArray1::<usize>::zeros_bound(py, [self.batch_size], false);
         let py_logp = numpy::PyArray1::<f32>::zeros_bound(py, [self.batch_size], false);
         let py_cp = numpy::PyArray1::<usize>::zeros_bound(py, [self.batch_size], false);
+        let action_space_size = encoding::get_action_space_size();
+        let py_mask = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, action_space_size], false);
 
         {
             let mut obs_view = py_obs.try_readwrite().unwrap();
@@ -1706,6 +1774,7 @@ impl PyBatchedSimulator {
             let mut act_view = py_act.try_readwrite().unwrap();
             let mut logp_view = py_logp.try_readwrite().unwrap();
             let mut cp_view = py_cp.try_readwrite().unwrap();
+            let mut mask_view = py_mask.try_readwrite().unwrap();
 
             let obs_slice = obs_view.as_slice_mut().unwrap();
             let rew_slice = rew_view.as_slice_mut().unwrap();
@@ -1715,8 +1784,9 @@ impl PyBatchedSimulator {
             let act_slice = act_view.as_slice_mut().unwrap();
             let logp_slice = logp_view.as_slice_mut().unwrap();
             let cp_slice = cp_view.as_slice_mut().unwrap();
+            let mask_slice = mask_view.as_slice_mut().unwrap();
 
-            for (i, (o, r, d, t, v, a, lp, cp)) in results.into_iter().enumerate() {
+            for (i, (o, r, d, t, v, a, lp, cp, m)) in results.into_iter().enumerate() {
                 // Copy observation
                 if o.len() == obs_dim {
                      // efficient copy
@@ -1732,6 +1802,13 @@ impl PyBatchedSimulator {
                 act_slice[i] = a;
                 logp_slice[i] = lp;
                 cp_slice[i] = cp;
+
+                // Copy mask
+                if m.len() == action_space_size {
+                    let start = i * action_space_size;
+                    let end = start + action_space_size;
+                    mask_slice[start..end].copy_from_slice(&m);
+                }
             }
         }
 
@@ -1744,6 +1821,7 @@ impl PyBatchedSimulator {
             py_act.unbind(),
             py_logp.unbind(),
             py_cp.unbind(),
+            py_mask.unbind(),
         ))
     }
 }
