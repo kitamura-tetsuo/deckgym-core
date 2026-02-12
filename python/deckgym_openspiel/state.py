@@ -82,7 +82,7 @@ class DeckGymState(pyspiel.State):
 
     def observation_tensor(self, player):
         # Flatten the list returned by encode_observation
-        return self.rust_game.encode_observation(player_id=player, public_only=True)
+        return self.rust_game.encode_observation(player_id=player, public_only=False)
 
     def information_state_tensor(self, player):
         return self.rust_game.encode_observation(player_id=player, public_only=False)
