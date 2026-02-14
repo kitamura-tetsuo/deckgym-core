@@ -366,6 +366,11 @@ impl PyPlayedCard {
     }
 
     #[getter]
+    fn attached_tool(&self) -> Option<PyCard> {
+        self.played_card.attached_tool.clone().map(|t| t.into())
+    }
+
+    #[getter]
     fn name(&self) -> String {
         self.played_card.get_name()
     }
