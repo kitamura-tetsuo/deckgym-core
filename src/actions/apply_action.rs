@@ -615,7 +615,7 @@ fn forecast_attach_from_discard(
     num_random_energies: usize,
 ) -> (Probabilities, Mutations) {
     let discard_energies = &state.discard_energies[acting_player];
-    let actual_num = std::cmp::min(num_random_energies, discard_energies.len());
+    let actual_num = num_random_energies.min(discard_energies.len());
 
     if actual_num == 0 {
         return (vec![1.0], vec![Box::new(|_, _, _| {})]);

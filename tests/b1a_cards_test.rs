@@ -565,9 +565,10 @@ fn test_quick_grow_extract_evolves_from_deck() {
     let mut state = game.get_state_clone();
     state.current_player = 0;
 
-    // Clear the hand and deck to have a controlled test environment
+    // Clear the hand, deck, and in-play to have a controlled test environment
     state.hands[0].clear();
     state.decks[0].cards.clear();
+    state.in_play_pokemon[0] = Default::default();
 
     // Set up Bulbasaur as active (Grass type, stage 0)
     state.in_play_pokemon[0][0] = Some(PlayedCard::from_id(CardId::A1001Bulbasaur));

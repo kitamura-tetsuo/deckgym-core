@@ -148,14 +148,19 @@ fn generate_hand_actions(state: &State) -> Vec<SimpleAction> {
             Card::Pokemon(pokemon_card) => {
                 // Basic pokemons can be placed in empty Active or Bench slots
                 if pokemon_card.stage == 0 {
-                    state.in_play_pokemon[current_player]
+                    // Active slot
+                    if state.in_play_pokemon[current_player][0].is_none() {
+                        actions.push(SimpleAction::Place(hand_card.clone(), 0));
+                    }
+                    // Bench slots (take only the first empty one)
+                    if let Some((i, _)) = state.in_play_pokemon[current_player]
                         .iter()
                         .enumerate()
-                        .for_each(|(i, x)| {
-                            if x.is_none() {
-                                actions.push(SimpleAction::Place(hand_card.clone(), i));
-                            }
-                        });
+                        .skip(1)
+                        .find(|(_, x)| x.is_none())
+                    {
+                        actions.push(SimpleAction::Place(hand_card.clone(), i));
+                    }
                 } else {
                     // Evolutions can only be played if previous stage
                     // is there, and wasn't played this turn, and isn't the first 2 turns.
@@ -417,5 +422,64 @@ mod tests {
             has_bench_evolve,
             "Aerodactyl ex's Primeval Law should NOT block bench Pokemon evolution"
         );
+    }
+
+    #[test]
+    fn test_only_one_bench_place_action_is_generated() {
+        let mut state = State::default();
+        state.turn_count = 1;
+
+        // Active spot filled
+        let charmander = get_card_by_enum(CardId::A1033Charmander);
+        state.in_play_pokemon[0][0] = Some(to_playable_card(&charmander, false));
+
+        // Hand contains a basic pokemon
+        let bulbasaur = get_card_by_enum(CardId::A1001Bulbasaur);
+        state.hands[0].push(bulbasaur.clone());
+
+        // Slot 1, 2, 3 are empty
+
+        let actions = generate_hand_actions(&state);
+
+        // Check Place actions
+        let place_actions: Vec<_> = actions
+            .iter()
+            .filter(|a| matches!(a, SimpleAction::Place(_, _)))
+            .collect();
+
+        // Should only have Place(Bulbasaur, 1)
+        assert_eq!(place_actions.len(), 1);
+        match place_actions[0] {
+            SimpleAction::Place(card, index) => {
+                assert_eq!(card.get_id(), bulbasaur.get_id());
+                assert_eq!(*index, 1);
+            }
+            _ => panic!("Expected Place action"),
+        }
+    }
+
+    #[test]
+    fn test_only_one_bench_place_action_with_some_occupied() {
+        let mut state = State::default();
+        state.turn_count = 1;
+
+        let charmander = get_card_by_enum(CardId::A1033Charmander);
+        state.in_play_pokemon[0][0] = Some(to_playable_card(&charmander, false));
+        state.in_play_pokemon[0][1] = Some(to_playable_card(&charmander, false));
+
+        let bulbasaur = get_card_by_enum(CardId::A1001Bulbasaur);
+        state.hands[0].push(bulbasaur.clone());
+
+        let actions = generate_hand_actions(&state);
+        let place_actions: Vec<_> = actions
+            .iter()
+            .filter(|a| matches!(a, SimpleAction::Place(_, _)))
+            .collect();
+
+        assert_eq!(place_actions.len(), 1);
+        match place_actions[0] {
+            SimpleAction::Place(_, index) => assert_eq!(*index, 2),
+            _ => panic!("Expected Place action"),
+        }
     }
 }

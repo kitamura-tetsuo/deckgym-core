@@ -199,22 +199,20 @@ pub fn trainer_move_generation_implementation(
 
 /// Check if a Fossil card can be played (requires at least 1 empty bench spot)
 fn can_play_fossil(state: &State, trainer_card: &TrainerCard) -> Option<Vec<SimpleAction>> {
-    let empty_bench_slots: Vec<_> = state.in_play_pokemon[state.current_player]
+    let first_empty_bench = state.in_play_pokemon[state.current_player]
         .iter()
         .enumerate()
-        .filter(|(i, p)| *i > 0 && p.is_none())
-        .map(|(i, _)| i)
-        .collect();
+        .skip(1)
+        .find(|(_, p)| p.is_none())
+        .map(|(i, _)| i);
 
-    if empty_bench_slots.is_empty() {
-        cannot_play_trainer()
+    if let Some(i) = first_empty_bench {
+        Some(vec![SimpleAction::Place(
+            Card::Trainer(trainer_card.clone()),
+            i,
+        )])
     } else {
-        Some(
-            empty_bench_slots
-                .into_iter()
-                .map(|i| SimpleAction::Place(Card::Trainer(trainer_card.clone()), i))
-                .collect(),
-        )
+        cannot_play_trainer()
     }
 }
 
@@ -639,15 +637,19 @@ fn can_place_fossil(state: &State, trainer_card: &TrainerCard) -> Option<Vec<Sim
     let current_player = state.current_player;
     let mut actions = Vec::new();
 
-    // Fossils can be placed in any empty slot
-    state.in_play_pokemon[current_player]
+    // Active slot
+    if state.in_play_pokemon[current_player][0].is_none() {
+        actions.push(SimpleAction::Place(Card::Trainer(trainer_card.clone()), 0));
+    }
+    // Bench slots (take only the first empty one)
+    if let Some((i, _)) = state.in_play_pokemon[current_player]
         .iter()
         .enumerate()
-        .for_each(|(i, x)| {
-            if x.is_none() {
-                actions.push(SimpleAction::Place(Card::Trainer(trainer_card.clone()), i));
-            }
-        });
+        .skip(1)
+        .find(|(_, x)| x.is_none())
+    {
+        actions.push(SimpleAction::Place(Card::Trainer(trainer_card.clone()), i));
+    }
 
     Some(actions)
 }

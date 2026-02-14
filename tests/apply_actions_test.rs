@@ -150,12 +150,20 @@ fn test_play_pokeball_action() {
 #[test]
 fn test_place_action() {
     let mut game = get_initialized_game(3);
-    let state = game.get_state_clone();
+    let mut state = game.get_state_clone();
     let current_player = state.current_player;
-    let hand = state.hands[current_player].clone();
-    let bulbasaur = &hand[0];
-    let action = SimpleAction::Place(bulbasaur.clone(), 2);
+
+    let basic_pokemon = get_card_by_enum(CardId::A1001Bulbasaur);
+    state.hands[current_player].push(basic_pokemon.clone());
+    let action = SimpleAction::Place(basic_pokemon, 2);
+
+    // Clear bench to ensure test predictability, as setup might have placed something
+    for i in 1..4 {
+        state.in_play_pokemon[current_player][i] = None;
+    }
+
     assert_eq!(state.enumerate_bench_pokemon(current_player).count(), 0); // no bench
+    let initial_hand_len = state.hands[current_player].len();
     game.set_state(state);
 
     let action = Action {
@@ -166,7 +174,7 @@ fn test_place_action() {
     game.apply_action(&action);
 
     let state = game.get_state_clone();
-    assert_eq!(hand.len() - 1, state.hands[current_player].len()); // removed from hand
+    assert_eq!(initial_hand_len - 1, state.hands[current_player].len()); // removed from hand
     assert!(state.enumerate_bench_pokemon(current_player).count() > 0); // placed on bench
 }
 
