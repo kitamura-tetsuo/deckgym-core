@@ -53,6 +53,27 @@ pub enum TrainerMechanic {
     MultiEffect {
         effects: Vec<TrainerMechanic>,
     },
+    ProbabilisticShuffleHandInDraw {
+        amounts: Vec<u32>,
+    },
+    CoinFlipModifier {
+        heads: bool,
+    },
+    GlobalDamageBoost {
+        amount: u32,
+        target_stage: Option<u8>,
+    },
+    GlobalRetreatCostReduction {
+        amount: u32,
+        target_stage: Option<u8>,
+    },
+    GlobalOnPlayDamage {
+        amount: u32,
+        target_stage: Option<u8>,
+    },
+    ReturnPokemonToHand {
+        in_play_idx: u8,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -142,6 +163,12 @@ impl CardId {
             // B2 Trainers handled in apply_trainer_action
             CardId::B2151Juggler | CardId::B2192Juggler => Some(TrainerMechanic::EnergyAttachment { amount: 0, energy_type: None, from_zone: "Field".to_string(), target_scope: TargetScope::SelfActive }),
             CardId::B2152Piers | CardId::B2193Piers => Some(TrainerMechanic::DiscardTool { target_scope: TargetScope::OpponentActive }),
+
+            CardId::A3149Ilima => Some(TrainerMechanic::ReturnPokemonToHand { in_play_idx: 0 }),
+            CardId::A4156Will => Some(TrainerMechanic::CoinFlipModifier { heads: true }),
+            CardId::B2153TrainingArea => Some(TrainerMechanic::GlobalDamageBoost { amount: 10, target_stage: None }),
+            CardId::B2154StartingPlains => Some(TrainerMechanic::GlobalRetreatCostReduction { amount: 1, target_stage: Some(0) }),
+            CardId::B2155PeculiarPlaza => Some(TrainerMechanic::GlobalOnPlayDamage { amount: 10, target_stage: Some(0) }),
 
             _ => None,
         }

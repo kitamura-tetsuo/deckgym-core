@@ -61,6 +61,8 @@ pub enum AbilityMechanic {
     NoRetreatCost,
     Safeguard,
     IncreasedPoisonDamage { amount: u32 },
+    DrawAtEndOfTurn { amount: u32 },
+    ShutDownAbilities { target_stage: Option<u8> },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
