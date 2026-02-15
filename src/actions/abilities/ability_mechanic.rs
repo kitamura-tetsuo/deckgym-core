@@ -46,6 +46,8 @@ pub fn get_ability_mechanic(card: &Card) -> Option<AbilityMechanic> {
             Some(AbilityMechanic::NoRetreatCost),
         AbilityId::A3066OricoricSafeguard => 
             Some(AbilityMechanic::Safeguard),
+        AbilityId::A3a042NihilegoMorePoison => 
+            Some(AbilityMechanic::IncreasedPoisonDamage { amount: 10 }),
         _ => None,
     }
 }

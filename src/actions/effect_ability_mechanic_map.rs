@@ -158,7 +158,10 @@ pub static EFFECT_ABILITY_MECHANIC_MAP: LazyLock<HashMap<&'static str, AbilityMe
         // map.insert("Your Active Dondozo has no Retreat Cost.", todo_implementation);
         // map.insert("Your Active Pokémon has no Retreat Cost.", todo_implementation);
         // map.insert("Your opponent can't play any Pokémon from their hand to evolve their Active Pokémon.", todo_implementation);
-        // map.insert("Your opponent's Active Pokémon takes +10 damage from being Poisoned.", todo_implementation);
+        map.insert(
+            "Your opponent's Active Pokémon takes +10 damage from being Poisoned.",
+            AbilityMechanic::IncreasedPoisonDamage { amount: 10 },
+        );
         // map.insert("Your opponent's Active Pokémon's Retreat Cost is 1 more.", todo_implementation);
         map
     });

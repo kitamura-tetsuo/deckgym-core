@@ -60,6 +60,7 @@ pub enum AbilityMechanic {
     },
     NoRetreatCost,
     Safeguard,
+    IncreasedPoisonDamage { amount: u32 },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
