@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use crate::actions::abilities::AbilityMechanic;
+use crate::actions::abilities::{AbilityMechanic, TargetScope};
 use crate::models::{Card, EnergyType};
 
 /// Map from ability effect text to its AbilityMechanic.
@@ -60,7 +60,10 @@ pub static EFFECT_ABILITY_MECHANIC_MAP: LazyLock<HashMap<&'static str, AbilityMe
         // map.insert("If this Pokémon would be Knocked Out by damage from an attack, flip a coin. If heads, this Pokémon is not Knocked Out, and its remaining HP becomes 10.", todo_implementation);
         // map.insert("If you have Arceus or Arceus ex in play, attacks used by this Pokémon cost 1 less [C] Energy.", todo_implementation);
         // map.insert("If you have Arceus or Arceus ex in play, attacks used by this Pokémon do +30 damage to your opponent's Active Pokémon.", todo_implementation);
-        // map.insert("If you have Arceus or Arceus ex in play, this Pokémon has no Retreat Cost.", todo_implementation);
+        map.insert(
+            "If you have Arceus or Arceus ex in play, this Pokémon has no Retreat Cost.",
+            AbilityMechanic::NoRetreatCost,
+        );
         // map.insert("If you have Arceus or Arceus ex in play, this Pokémon takes -30 damage from attacks.", todo_implementation);
         // map.insert("If you have Latias in play, this Pokémon has no Retreat Cost.", todo_implementation);
         // map.insert("If you have another Falinks in play, this Pokémon's attacks do +20 damage to your opponent's Active Pokémon, and this Pokémon takes -20 damage from attacks from your opponent's Pokémon.", todo_implementation);
@@ -116,7 +119,10 @@ pub static EFFECT_ABILITY_MECHANIC_MAP: LazyLock<HashMap<&'static str, AbilityMe
         // map.insert("Once during your turn, you may take a [P] Energy from your Energy Zone and attach it to the [P] Pokémon in the Active Spot.", todo_implementation);
         // map.insert("Once during your turn, you may take a [P] Energy from your Energy Zone and attach it to this Pokémon. If you use this Ability, your turn ends.", todo_implementation);
         // map.insert("Pokémon (both yours and your opponent's) can't be healed.", todo_implementation);
-        // map.insert("Prevent all damage done to this Pokémon by attacks from your opponent's Pokémon ex.", todo_implementation);
+        map.insert(
+            "Prevent all damage done to this Pokémon by attacks from your opponent's Pokémon ex.",
+            AbilityMechanic::Safeguard,
+        );
         // map.insert("Prevent all effects of attacks used by your opponent's Pokémon done to this Pokémon.", todo_implementation);
         // map.insert("This Ability works if you have any Unown in play with an Ability other than GUARD. All of your Pokémon take -10 damage from attacks from your opponent's Pokémon.", todo_implementation);
         // map.insert("This Ability works if you have any Unown in play with an Ability other than POWER. Attacks used by your Pokémon do +10 damage to your opponent's Active Pokémon.", todo_implementation);
@@ -137,7 +143,15 @@ pub static EFFECT_ABILITY_MECHANIC_MAP: LazyLock<HashMap<&'static str, AbilityMe
             "When this Pokémon is first damaged by an attack after coming into play, prevent that damage.",
             AbilityMechanic::PreventFirstAttack,
         );
-        // map.insert("Whenever you attach a [D] Energy from your Energy Zone to this Pokémon, do 20 damage to your opponent's Active Pokémon.", todo_implementation);
+        map.insert(
+            "Whenever you attach a [D] Energy from your Energy Zone to this Pokémon, do 20 damage to your opponent's Active Pokémon.",
+            AbilityMechanic::OnEnergyAttachDamage {
+                energy_type: EnergyType::Darkness,
+                amount: 20,
+                from_zone: "EnergyZone".to_string(),
+                target: TargetScope::OpponentActive,
+            },
+        );
         // map.insert("Whenever you attach a [P] Energy from your Energy Zone to this Pokémon, heal 20 damage from this Pokémon.", todo_implementation);
         // map.insert("Whenever you attach an Energy from your Energy Zone to this Pokémon, put a random card from your deck that evolves from this Pokémon onto this Pokémon to evolve it.", todo_implementation);
         // map.insert("You must discard a card from your hand in order to use this Ability. Once during your turn, you may draw a card.", todo_implementation);

@@ -52,6 +52,14 @@ pub enum AbilityMechanic {
         amount: u32,
         from_zone: String,
     },
+    OnEnergyAttachDamage {
+        energy_type: EnergyType,
+        amount: u32,
+        from_zone: String,
+        target: TargetScope,
+    },
+    NoRetreatCost,
+    Safeguard,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

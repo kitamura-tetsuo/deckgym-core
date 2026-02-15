@@ -40,6 +40,12 @@ pub fn get_ability_mechanic(card: &Card) -> Option<AbilityMechanic> {
             Some(AbilityMechanic::DamageOpponent { amount: 30, target: TargetScope::OpponentActive }),
         AbilityId::B1157HydreigonRoarInUnison => 
             Some(AbilityMechanic::EnergyAttachment { amount: 2, energy_type: Some(EnergyType::Darkness), from_zone: "EnergyZone".to_string(), target: TargetScope::SelfBoard }),
+        AbilityId::A2110DarkraiExNightmareAura => 
+            Some(AbilityMechanic::OnEnergyAttachDamage { energy_type: EnergyType::Darkness, amount: 20, from_zone: "EnergyZone".to_string(), target: TargetScope::OpponentActive }),
+        AbilityId::A2a035RotomSpeedLink => 
+            Some(AbilityMechanic::NoRetreatCost),
+        AbilityId::A3066OricoricSafeguard => 
+            Some(AbilityMechanic::Safeguard),
         _ => None,
     }
 }
