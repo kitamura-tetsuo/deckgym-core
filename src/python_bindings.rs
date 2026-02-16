@@ -1397,7 +1397,7 @@ impl PyBatchedSimulator {
 
     // Returns (obs, rewards, dones, timed_out, valid_mask)
     // valid_mask indicates if the environment was active and stepped successfully
-    pub fn step(&mut self, actions: Vec<usize>) -> PyResult<(Vec<Vec<f32>>, Vec<f32>, Vec<bool>, Vec<bool>, Vec<bool>)> {
+    pub fn step(&mut self, actions: Vec<usize>) -> PyResult<(Vec<Vec<f32>>, Vec<Vec<f32>>, Vec<bool>, Vec<bool>, Vec<bool>)> {
         if actions.len() != self.batch_size {
              return Err(PyValueError::new_err(format!(
                 "Actions length {} does not match batch size {}",
@@ -1421,7 +1421,7 @@ impl PyBatchedSimulator {
             if game.is_game_over() {
                 // Game already over
                 obs_batch.push(encoding::encode_observation(game.state(), game.state().current_player));
-                rew_batch.push(0.0);
+                rew_batch.push(vec![0.0, 0.0]);
                 done_batch.push(true);
                 timed_out_batch.push(false);
                 valid_batch.push(false); // active=False
@@ -1453,29 +1453,33 @@ impl PyBatchedSimulator {
                 let done = game.is_game_over();
                 
                 // 5. Reward
-                let mut r = 0.0;
+                let mut r_actor = 0.0;
+                let mut r_opp = 0.0;
 
-                // Win/Loss reward
+                // Win/Loss reward (Symmetric)
                 if done {
                     if let Some(GameOutcome::Win(winner)) = game.state().winner {
                         if winner == actor_before {
-                            r += self.win_reward; // Win
+                            r_actor += self.win_reward;
+                            r_opp -= self.win_reward;
                         } else {
-                            r -= self.win_reward; // Loss
+                            r_actor -= self.win_reward;
+                            r_opp += self.win_reward;
                         }
                     }
                 }
 
-                // Point reward
+                // Point reward (Symmetric)
                 if self.point_reward != 0.0 {
                     let points_after = game.state().points;
                     let opponent = (actor_before + 1) % 2;
                     let point_diff = (points_after[actor_before] as f32 - points_before[actor_before] as f32)
                         - (points_after[opponent] as f32 - points_before[opponent] as f32);
-                    r += self.point_reward * point_diff;
+                    r_actor += self.point_reward * point_diff;
+                    r_opp -= self.point_reward * point_diff;
                 }
 
-                // Damage reward
+                // Damage reward (Asymmetric)
                 if self.damage_reward != 0.0 {
                     if let SimpleAction::Attack(_) = action.action {
                         let opponent = (actor_before + 1) % 2;
@@ -1493,12 +1497,13 @@ impl PyBatchedSimulator {
                                 total_damage += before.remaining_hp as f32;
                             }
                         }
-                        r += self.damage_reward * total_damage;
+                        r_actor += self.damage_reward * total_damage;
+                        // r_opp is unchanged (Asymmetric)
                     }
                 }
 
                 obs_batch.push(encoding::encode_observation(game.state(), game.state().current_player));
-                rew_batch.push(r);
+                rew_batch.push(vec![r_actor, r_opp]);
                 done_batch.push(done);
                 timed_out_batch.push(false);
                 valid_batch.push(true);
@@ -1544,7 +1549,7 @@ impl PyBatchedSimulator {
         logits: numpy::PyReadonlyArray2<'py, f32>,
     ) -> PyResult<(
         Py<numpy::PyArray2<f32>>,
-        Py<numpy::PyArray1<f32>>,
+        Py<numpy::PyArray2<f32>>,
         Py<numpy::PyArray1<bool>>,
         Py<numpy::PyArray1<bool>>,
         Py<numpy::PyArray1<bool>>,
@@ -1553,7 +1558,6 @@ impl PyBatchedSimulator {
         Py<numpy::PyArray1<usize>>,
         Py<numpy::PyArray2<f32>>,
     )> {
-        // ... (lines 1417-1569 are unchanged) ...
         let logits_array = logits.as_array();
         let shape = logits_array.shape();
         
@@ -1575,12 +1579,11 @@ impl PyBatchedSimulator {
                 .enumerate()
                 .map(|(i, game)| {
                     let logit_row = logits_array.row(i);
-                     // ... (simulation logic unchanged, omitted for brevity) ...
-                     // (lines 1428-1568)
+
                     if game.is_game_over() {
                         return (
                             encoding::encode_observation(game.state(), game.state().current_player),
-                            0.0,
+                            vec![0.0, 0.0],
                             true,
                             false,
                             false,
@@ -1646,34 +1649,40 @@ impl PyBatchedSimulator {
                         game.apply_action(&action);
                         let done = game.is_game_over();
 
-                        let mut r = 0.0;
+                        let mut r_p1 = 0.0;
+                        let mut r_p2 = 0.0;
+
                         if done {
                             if let Some(GameOutcome::Win(winner)) = game.state().winner {
-                                if winner == actor_before {
-                                    r += win_reward;
+                                if winner == 0 {
+                                    r_p1 += win_reward;
+                                    r_p2 -= win_reward;
                                 } else {
-                                    r -= win_reward;
+                                    r_p1 -= win_reward;
+                                    r_p2 += win_reward;
                                 }
                             }
                         }
 
                         if point_reward != 0.0 {
                             let points_after = game.state().points;
-                            let opponent = (actor_before + 1) % 2;
-                            let point_diff = (points_after[actor_before] as f32
-                                - points_before[actor_before] as f32)
-                                - (points_after[opponent] as f32 - points_before[opponent] as f32);
-                            r += point_reward * point_diff;
+                            let prior_points = points_before; // renaming for clarity calculation below
+                            
+                            // P1 diff
+                            let p1_diff = (points_after[0] as f32 - prior_points[0] as f32)
+                                        - (points_after[1] as f32 - prior_points[1] as f32);
+                            r_p1 += point_reward * p1_diff;
+                            r_p2 -= point_reward * p1_diff;
                         }
 
                         if damage_reward != 0.0 {
                             if let SimpleAction::Attack(_) = action.action {
-                                let opponent = (actor_before + 1) % 2;
+                                let target = (action.actor + 1) % 2;
                                 let mut total_damage = 0.0;
                                 for pos in 0..4 {
                                     if let (Some(before), Some(after)) = (
-                                        &state_before.in_play_pokemon[opponent][pos],
-                                        &game.state().in_play_pokemon[opponent][pos],
+                                        &state_before.in_play_pokemon[target][pos],
+                                        &game.state().in_play_pokemon[target][pos],
                                     ) {
                                         if (before.remaining_hp as i32) > (after.remaining_hp as i32)
                                         {
@@ -1681,12 +1690,19 @@ impl PyBatchedSimulator {
                                                 (before.remaining_hp - after.remaining_hp) as f32;
                                         }
                                     } else if let Some(before) =
-                                        &state_before.in_play_pokemon[opponent][pos]
+                                        &state_before.in_play_pokemon[target][pos]
                                     {
                                         total_damage += before.remaining_hp as f32;
                                     }
                                 }
-                                r += damage_reward * total_damage;
+                                
+                                if action.actor == 0 {
+                                    r_p1 += damage_reward * total_damage;
+                                    // r_p2 unchanged
+                                } else {
+                                    r_p2 += damage_reward * total_damage;
+                                    // r_p1 unchanged
+                                }
                             }
                         }
 
@@ -1706,7 +1722,7 @@ impl PyBatchedSimulator {
 
                         (
                             encoding::encode_observation(game.state(), game.state().current_player),
-                            r,
+                            vec![r_p1, r_p2],
                             done,
                             false,
                             true,
@@ -1730,7 +1746,7 @@ impl PyBatchedSimulator {
 
                         (
                             encoding::encode_observation(game.state(), game.state().current_player),
-                            0.0,
+                            vec![0.0, 0.0],
                             game.is_game_over(),
                             false,
                             false,
@@ -1760,7 +1776,7 @@ impl PyBatchedSimulator {
 
         // Allocate numpy arrays
         let py_obs = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, obs_dim], false);
-        let py_rew = numpy::PyArray1::<f32>::zeros_bound(py, [self.batch_size], false);
+        let py_rew = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, 2], false);
         let py_done = numpy::PyArray1::<bool>::zeros_bound(py, [self.batch_size], false);
         let py_timeout = numpy::PyArray1::<bool>::zeros_bound(py, [self.batch_size], false);
         let py_valid = numpy::PyArray1::<bool>::zeros_bound(py, [self.batch_size], false);
@@ -1800,7 +1816,9 @@ impl PyBatchedSimulator {
                      obs_slice[start..end].copy_from_slice(&o);
                 }
                 
-                rew_slice[i] = r;
+                rew_slice[i * 2] = r[0];
+                rew_slice[i * 2 + 1] = r[1];
+                
                 done_slice[i] = d;
                 timeout_slice[i] = t;
                 valid_slice[i] = v;
