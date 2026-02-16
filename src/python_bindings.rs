@@ -1671,7 +1671,6 @@ impl PyBatchedSimulator {
                             let p1_diff = (points_after[0] as f32 - prior_points[0] as f32)
                                         - (points_after[1] as f32 - prior_points[1] as f32);
                             r_p1 += point_reward * p1_diff;
-                            r_p2 -= point_reward * p1_diff;
                         }
 
                         if damage_reward != 0.0 {
