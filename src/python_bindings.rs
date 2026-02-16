@@ -1665,12 +1665,19 @@ impl PyBatchedSimulator {
 
                         if point_reward != 0.0 {
                             let points_after = game.state().points;
-                            let prior_points = points_before; // renaming for clarity calculation below
+                            let prior_points = points_before; 
                             
-                            // P1 diff
-                            let p1_diff = (points_after[0] as f32 - prior_points[0] as f32)
-                                        - (points_after[1] as f32 - prior_points[1] as f32);
-                            r_p1 += point_reward * p1_diff;
+                            // P1 Gain
+                            let p1_gain = points_after[0] as f32 - prior_points[0] as f32;
+                            if p1_gain > 0.0 {
+                                r_p1 += point_reward * p1_gain;
+                            }
+                            
+                            // P2 Gain
+                            let p2_gain = points_after[1] as f32 - prior_points[1] as f32;
+                            if p2_gain > 0.0 {
+                                r_p2 += point_reward * p2_gain;
+                            }
                         }
 
                         if damage_reward != 0.0 {
