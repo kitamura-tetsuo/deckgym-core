@@ -1296,7 +1296,7 @@ impl PyBatchedSimulator {
         seed: Option<u64>, 
         deck_ids_1: Option<Vec<String>>, 
         deck_ids_2: Option<Vec<String>>
-    ) -> PyResult<(Py<numpy::PyArray2<f32>>, Py<numpy::PyArray1<usize>>, Py<numpy::PyArray2<f32>>)> {
+    ) -> PyResult<((Py<numpy::PyArray2<f32>>, Py<numpy::PyArray2<f32>>), Py<numpy::PyArray1<usize>>, Py<numpy::PyArray2<f32>>)> {
         self.games.clear();
         let mut rng = if let Some(s) = seed {
             rand::rngs::StdRng::seed_from_u64(s)
@@ -1360,23 +1360,28 @@ impl PyBatchedSimulator {
             0
         };
 
-        let py_obs = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, obs_dim], false);
+        let py_obs_0 = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, obs_dim], false);
+        let py_obs_1 = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, obs_dim], false);
         let py_cp = numpy::PyArray1::<usize>::zeros_bound(py, [self.batch_size], false);
         let py_mask = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, action_space_size], false);
 
         {
-            let mut obs_view = py_obs.try_readwrite().unwrap();
+            let mut obs_0_view = py_obs_0.try_readwrite().unwrap();
+            let mut obs_1_view = py_obs_1.try_readwrite().unwrap();
             let mut cp_view = py_cp.try_readwrite().unwrap();
             let mut mask_view = py_mask.try_readwrite().unwrap();
 
-            let obs_slice = obs_view.as_slice_mut().unwrap();
+            let obs_0_slice = obs_0_view.as_slice_mut().unwrap();
+            let obs_1_slice = obs_1_view.as_slice_mut().unwrap();
             let cp_slice = cp_view.as_slice_mut().unwrap();
             let mask_slice = mask_view.as_slice_mut().unwrap();
 
             for (i, game) in self.games.iter().enumerate() {
-                let current_obs = encoding::encode_observation(game.state(), game.state().current_player);
+                let obs_0 = encoding::encode_observation(game.state(), 0);
+                let obs_1 = encoding::encode_observation(game.state(), 1);
                 let start = i * obs_dim;
-                obs_slice[start..start + obs_dim].copy_from_slice(&current_obs);
+                obs_0_slice[start..start + obs_dim].copy_from_slice(&obs_0);
+                obs_1_slice[start..start + obs_dim].copy_from_slice(&obs_1);
 
                 cp_slice[i] = game.state().current_player;
 
@@ -1392,7 +1397,7 @@ impl PyBatchedSimulator {
             }
         }
 
-        Ok((py_obs.unbind(), py_cp.unbind(), py_mask.unbind()))
+        Ok(((py_obs_0.unbind(), py_obs_1.unbind()), py_cp.unbind(), py_mask.unbind()))
     }
 
     // Returns (obs, rewards, dones, timed_out, valid_mask)
@@ -1547,7 +1552,7 @@ impl PyBatchedSimulator {
         py: Python<'py>,
         logits: numpy::PyReadonlyArray2<'py, f32>,
     ) -> PyResult<(
-        Py<numpy::PyArray2<f32>>,
+        (Py<numpy::PyArray2<f32>>, Py<numpy::PyArray2<f32>>),
         Py<numpy::PyArray2<f32>>,
         Py<numpy::PyArray1<bool>>,
         Py<numpy::PyArray1<bool>>,
@@ -1581,7 +1586,7 @@ impl PyBatchedSimulator {
 
                     if game.is_game_over() {
                         return (
-                            encoding::encode_observation(game.state(), game.state().current_player),
+                            (encoding::encode_observation(game.state(), 0), encoding::encode_observation(game.state(), 1)),
                             vec![0.0, 0.0],
                             true,
                             false,
@@ -1726,7 +1731,7 @@ impl PyBatchedSimulator {
                         }
 
                         (
-                            encoding::encode_observation(game.state(), game.state().current_player),
+                            (encoding::encode_observation(game.state(), 0), encoding::encode_observation(game.state(), 1)),
                             vec![r_p1, r_p2],
                             done,
                             false,
@@ -1750,7 +1755,7 @@ impl PyBatchedSimulator {
                         }
 
                         (
-                            encoding::encode_observation(game.state(), game.state().current_player),
+                            (encoding::encode_observation(game.state(), 0), encoding::encode_observation(game.state(), 1)),
                             vec![0.0, 0.0],
                             game.is_game_over(),
                             false,
@@ -1767,8 +1772,8 @@ impl PyBatchedSimulator {
 
         // Unzip results into numpy arrays
         // obs is flattened
-        let obs_dim: usize = if !results.is_empty() && !results[0].0.is_empty() {
-            results[0].0.len()
+        let obs_dim: usize = if !results.is_empty() && !results[0].0.0.is_empty() {
+            results[0].0.0.len()
         } else {
             // Fallback or error, assume standard size?
             // Usually games[0] has size
@@ -1780,7 +1785,8 @@ impl PyBatchedSimulator {
         };
 
         // Allocate numpy arrays
-        let py_obs = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, obs_dim], false);
+        let py_obs_0 = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, obs_dim], false);
+        let py_obs_1 = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, obs_dim], false);
         let py_rew = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, 2], false);
         let py_done = numpy::PyArray1::<bool>::zeros_bound(py, [self.batch_size], false);
         let py_timeout = numpy::PyArray1::<bool>::zeros_bound(py, [self.batch_size], false);
@@ -1792,7 +1798,8 @@ impl PyBatchedSimulator {
         let py_mask = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, action_space_size], false);
 
         {
-            let mut obs_view = py_obs.try_readwrite().unwrap();
+            let mut obs_0_view = py_obs_0.try_readwrite().unwrap();
+            let mut obs_1_view = py_obs_1.try_readwrite().unwrap();
             let mut rew_view = py_rew.try_readwrite().unwrap();
             let mut done_view = py_done.try_readwrite().unwrap();
             let mut timeout_view = py_timeout.try_readwrite().unwrap();
@@ -1802,7 +1809,8 @@ impl PyBatchedSimulator {
             let mut cp_view = py_cp.try_readwrite().unwrap();
             let mut mask_view = py_mask.try_readwrite().unwrap();
 
-            let obs_slice = obs_view.as_slice_mut().unwrap();
+            let obs_0_slice = obs_0_view.as_slice_mut().unwrap();
+            let obs_1_slice = obs_1_view.as_slice_mut().unwrap();
             let rew_slice = rew_view.as_slice_mut().unwrap();
             let done_slice = done_view.as_slice_mut().unwrap();
             let timeout_slice = timeout_view.as_slice_mut().unwrap();
@@ -1812,13 +1820,14 @@ impl PyBatchedSimulator {
             let cp_slice = cp_view.as_slice_mut().unwrap();
             let mask_slice = mask_view.as_slice_mut().unwrap();
 
-            for (i, (o, r, d, t, v, a, lp, cp, m)) in results.into_iter().enumerate() {
+            for (i, (o_tuple, r, d, t, v, a, lp, cp, m)) in results.into_iter().enumerate() {
                 // Copy observation
-                if o.len() == obs_dim {
+                if o_tuple.0.len() == obs_dim {
                      // efficient copy
                      let start = i * obs_dim;
                      let end = start + obs_dim;
-                     obs_slice[start..end].copy_from_slice(&o);
+                     obs_0_slice[start..end].copy_from_slice(&o_tuple.0);
+                     obs_1_slice[start..end].copy_from_slice(&o_tuple.1);
                 }
                 
                 rew_slice[i * 2] = r[0];
@@ -1841,7 +1850,7 @@ impl PyBatchedSimulator {
         }
 
         Ok((
-            py_obs.unbind(),
+            (py_obs_0.unbind(), py_obs_1.unbind()),
             py_rew.unbind(),
             py_done.unbind(),
             py_timeout.unbind(),
