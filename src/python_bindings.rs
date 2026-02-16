@@ -1469,14 +1469,13 @@ impl PyBatchedSimulator {
                     }
                 }
 
-                // Point reward (Symmetric)
+                // Point reward (Asymmetric)
                 if self.point_reward != 0.0 {
                     let points_after = game.state().points;
                     let opponent = (actor_before + 1) % 2;
                     let point_diff = (points_after[actor_before] as f32 - points_before[actor_before] as f32)
                         - (points_after[opponent] as f32 - points_before[opponent] as f32);
                     r_actor += self.point_reward * point_diff;
-                    r_opp -= self.point_reward * point_diff;
                 }
 
                 // Damage reward (Asymmetric)
