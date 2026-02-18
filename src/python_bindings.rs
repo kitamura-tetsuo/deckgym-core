@@ -1657,14 +1657,21 @@ impl PyBatchedSimulator {
                         let mut r_p2 = 0.0;
 
                         if done {
-                            if let Some(GameOutcome::Win(winner)) = game.state().winner {
-                                if winner == 0 {
-                                    r_p1 += win_reward;
-                                    r_p2 -= win_reward;
-                                } else {
-                                    r_p1 -= win_reward;
-                                    r_p2 += win_reward;
-                                }
+                            match game.state().winner {
+                                Some(GameOutcome::Win(winner)) => {
+                                    if winner == 0 {
+                                        r_p1 += win_reward;
+                                        r_p2 -= win_reward;
+                                    } else {
+                                        r_p1 -= win_reward;
+                                        r_p2 += win_reward;
+                                    }
+                                },
+                                Some(GameOutcome::Tie) => {
+                                    r_p1 = -1.0;
+                                    r_p2 = -1.0;
+                                },
+                                None => {}
                             }
                         }
 
