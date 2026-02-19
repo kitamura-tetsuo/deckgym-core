@@ -434,11 +434,11 @@ fn mars_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
 
     // Draw cards
     for _ in 0..cards_to_draw {
-        if let Some(card) = state.decks[opponent_player].draw() {
-            state.hands[opponent_player].push(card);
-        }
+        // Use centralized method which handles visibility
+        state.maybe_draw_card(opponent_player);
     }
 }
+
 
 fn giovanni_effect(_: &mut StdRng, state: &mut State, _: &Action) {
     // During this turn, attacks used by your Pokémon do +10 damage to your opponent's Active Pokémon.
@@ -521,15 +521,20 @@ fn sightseer_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
     let mut other_cards = Vec::new();
 
     let top_cards = state.decks[actor].draw_multiple(4);
-    for card in top_cards {
+    for (card, _vis) in top_cards {
         if let Card::Pokemon(pokemon) = &card {
             if pokemon.stage == 1 {
                 found_pokemon.push(card);
+                // Assume revealed since we searched for it
+                state.hands_visibility[actor].push(true);
             } else {
                 other_cards.push(card);
+                // Reset visibility for returned cards to deck (will be shuffled)
+                state.decks[actor].visibility.push(false);
             }
         } else {
             other_cards.push(card);
+            state.decks[actor].visibility.push(false);
         }
     }
 
@@ -710,7 +715,9 @@ fn koga_effect(_: &mut StdRng, state: &mut State, action: &Action) {
         .expect("Active Pokemon should be there if Koga is played");
     let mut cards_to_collect = active_pokemon.cards_behind.clone();
     cards_to_collect.push(active_pokemon.card.clone());
+    let count = cards_to_collect.len();
     state.hands[action.actor].extend(cards_to_collect);
+    state.hands_visibility[action.actor].extend(std::iter::repeat(true).take(count));
     // Energy dissapears
     state.in_play_pokemon[action.actor][0] = None;
 
@@ -743,15 +750,33 @@ fn professor_oak_effect(_: &mut StdRng, state: &mut State, action: &Action) {
 // of pulling the different psychic left in deck vs pushing an item to the bottom.
 fn mythical_slab_effect(_: &mut StdRng, state: &mut State, action: &Action) {
     // Look at the top card of your deck. If that card is a Psychic Pokemon,\n        put it in your hand. If it is not a Psychic Pokemon, put it on the\n        bottom of your deck.
-    if let Some(card) = state.decks[action.actor].cards.first() {
+    // Draw top card to check. Use draw() to get visibility too (or just discard it as we reveal/hide).
+    if let Some((card, _vis)) = state.decks[action.actor].draw() {
         if card.is_basic() {
-            state.hands[action.actor].push(card.clone());
-            state.decks[action.actor].cards.remove(0);
+            // Psychic Pokemon found? Wait, prompt says "Psychic Pokemon".
+            // The logic: `if card.is_basic()` is definitely wrong for "Psychic Pokemon".
+            // But I should fix the tuple handling first.
+            // Assuming "Psychic Pokemon" check is intended to be implemented correctly?
+            // The original code `if card.is_basic()` seems weird for "Psychic Pokemon".
+            // But I will stick to fixing compilation error and mimic original logic unless obviously wrong.
+            // Oh, wait, I should fix logic if previous code was buggy? No, avoid scope creep.
+            // But access was: `state.decks[...].cards.first()`. This peeked without removing.
+            // Then `remove(0)`.
+            // Now I drew it. So it is removed.
+            
+            // Re-implementing original logic (which checked is_basic()) but using draw result.
+            if card.is_basic() {
+                state.hands[action.actor].push(card.clone());
+                state.hands_visibility[action.actor].push(true); // Reveal? Assuming yes.
+            } else {
+                state.decks[action.actor].cards.push(card);
+                state.decks[action.actor].visibility.push(false); // Bottom of deck, usually hidden.
+            }
         } else {
-            let card = state.decks[action.actor].cards.remove(0);
-            state.decks[action.actor].cards.push(card);
+             state.decks[action.actor].cards.push(card);
+             state.decks[action.actor].visibility.push(false);
         }
-    } // else do nothing
+    }
 }
 
 // Here we will simplify the output possibilities, counting with the fact that value functions
@@ -1084,6 +1109,7 @@ fn lucky_ice_pop_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
                      // but we can check ID.
                      if card.get_id() == "B2 145" {
                          state.hands[player].push(card);
+                         state.hands_visibility[player].push(true);
                      } else {
                          // Fallback, put it back
                          discard_pile.push(card);
@@ -1120,6 +1146,7 @@ fn celestic_town_elder_effect(acting_player: usize, state: &State) -> (Probabili
             {
                 state.discard_piles[action.actor].remove(idx);
                 state.hands[action.actor].push(pokemon.clone());
+                state.hands_visibility[action.actor].push(true);
             }
         }));
     }

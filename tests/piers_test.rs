@@ -4,7 +4,7 @@ use deckgym::{
     card_ids::CardId,
     database::get_card_by_enum,
     models::{Card, EnergyType, PlayedCard, TrainerCard},
-    state::State,
+
 };
 
 mod common;
@@ -37,6 +37,7 @@ fn test_piers_discards_two_energies() {
 
     let trainer_card = make_piers_trainer_card();
     state.hands[current_player].push(Card::Trainer(trainer_card.clone()));
+    state.hands_visibility[current_player].push(true);
     game.set_state(state);
 
     let play_action = Action {
@@ -68,6 +69,7 @@ fn test_piers_discards_one_energy_if_only_one_available() {
 
     let trainer_card = make_piers_trainer_card();
     state.hands[current_player].push(Card::Trainer(trainer_card.clone()));
+    state.hands_visibility[current_player].push(true);
     game.set_state(state);
 
     let play_action = Action {
@@ -84,7 +86,7 @@ fn test_piers_discards_one_energy_if_only_one_available() {
 
 #[test]
 fn test_piers_is_not_playable_if_opponent_has_no_energy() {
-    let mut game = get_initialized_game(0);
+    let game = get_initialized_game(0);
     let mut state = game.get_state_clone();
     let current_player = state.current_player;
     let opponent = (current_player + 1) % 2;
@@ -97,6 +99,7 @@ fn test_piers_is_not_playable_if_opponent_has_no_energy() {
 
     let trainer_card = make_piers_trainer_card();
     state.hands[current_player].push(Card::Trainer(trainer_card.clone()));
+    state.hands_visibility[current_player].push(true);
     
     // Verify move generation doesn't include Piers
     let actions = deckgym::generate_possible_actions(&state);
@@ -110,7 +113,7 @@ fn test_piers_is_not_playable_if_opponent_has_no_energy() {
 
 #[test]
 fn test_piers_is_not_playable_if_no_obstagoon() {
-    let mut game = get_initialized_game(0);
+    let game = get_initialized_game(0);
     let mut state = game.get_state_clone();
     let current_player = state.current_player;
     let opponent = (current_player + 1) % 2;
@@ -125,6 +128,7 @@ fn test_piers_is_not_playable_if_no_obstagoon() {
 
     let trainer_card = make_piers_trainer_card();
     state.hands[current_player].push(Card::Trainer(trainer_card.clone()));
+    state.hands_visibility[current_player].push(true);
 
     // Verify move generation doesn't include Piers
     let actions = deckgym::generate_possible_actions(&state);

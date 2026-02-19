@@ -24,6 +24,7 @@ fn test_gourgeist_soul_shot_discards_and_deals_damage() {
     state.in_play_pokemon[0][0] = Some(gourgeist_playable);
     state.in_play_pokemon[1][0] = Some(to_playable_card(&opponent_active, false));
     state.hands[0].push(discard_fodder.clone());
+    state.hands_visibility[0].push(true);
 
     let mut rng = rand::rngs::StdRng::seed_from_u64(42);
     

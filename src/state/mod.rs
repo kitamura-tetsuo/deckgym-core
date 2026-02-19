@@ -37,6 +37,7 @@ pub struct State {
     pub(crate) current_energy: Option<EnergyType>,
     pub(crate) next_energies: [Option<EnergyType>; 2],
     pub hands: [Vec<Card>; 2],
+    pub hands_visibility: [Vec<bool>; 2],
     pub decks: [Deck; 2],
     pub discard_piles: [Vec<Card>; 2],
     pub discard_energies: [Vec<EnergyType>; 2],
@@ -66,6 +67,7 @@ impl State {
             current_energy: None,
             next_energies: [None, None],
             hands: [Vec::new(), Vec::new()],
+            hands_visibility: [Vec::new(), Vec::new()],
             decks: [deck_a.clone(), deck_b.clone()],
             discard_piles: [Vec::new(), Vec::new()],
             discard_energies: [Vec::new(), Vec::new()],
@@ -118,7 +120,10 @@ impl State {
                 let hand_len = state.hands[player].len();
                 for _ in 0..hand_len {
                     let card = state.hands[player].pop().unwrap();
+                    let _vis = state.hands_visibility[player].pop(); // Discard visibility
                     state.decks[player].cards.push(card);
+                    // Reset visibility to private when returning to deck
+                    state.decks[player].visibility.push(false);
                 }
                 state.decks[player].shuffle(true, rng);
             }
@@ -162,6 +167,7 @@ impl State {
             .position(|x| x == card)
             .expect("Player hand should contain card to remove");
         self.hands[current_player].swap_remove(index);
+        self.hands_visibility[current_player].swap_remove(index);
     }
 
     pub(crate) fn remove_card_from_deck(&mut self, player: usize, card: &Card) {
@@ -171,6 +177,9 @@ impl State {
             .position(|c| c == card)
             .expect("Evolution card should be in deck");
         self.decks[player].cards.remove(pos);
+        if !self.decks[player].visibility.is_empty() {
+             self.decks[player].visibility.remove(pos);
+        }
     }
 
     pub(crate) fn discard_card_from_hand(&mut self, current_player: usize, card: &Card) {
@@ -184,8 +193,9 @@ impl State {
     }
 
     pub(crate) fn maybe_draw_card(&mut self, player: usize) {
-        if let Some(card) = self.decks[player].draw() {
+        if let Some((card, vis)) = self.decks[player].draw() {
             self.hands[player].push(card.clone());
+            self.hands_visibility[player].push(vis);
             debug!(
                 "Player {} drew: {:?}, now hand is: {:?} and deck has {} cards",
                 player + 1,
@@ -206,7 +216,13 @@ impl State {
             .position(|c| c == card)
             .unwrap_or_else(|| panic!("Card {:?} must exist in deck to transfer to hand (Source: {})", card, source));
         self.decks[player].cards.remove(pos);
+        if !self.decks[player].visibility.is_empty() {
+            self.decks[player].visibility.remove(pos);
+        }
         self.hands[player].push(card.clone());
+        // Transferring from deck to hand usually implies searching/revealing.
+        // Prompt says: "When returning to hand... revealed". Safest to assume searches reveal.
+        self.hands_visibility[player].push(true);
     }
 
     pub(crate) fn transfer_card_from_hand_to_deck(&mut self, player: usize, card: &Card) {
@@ -216,7 +232,10 @@ impl State {
             .position(|c| c == card)
             .expect("Card must exist in hand to transfer to deck");
         self.hands[player].remove(pos);
+        self.hands_visibility[player].remove(pos);
         self.decks[player].cards.push(card.clone());
+        // Reset to non-visible when returning to deck
+        self.decks[player].visibility.push(false);
     }
 
     pub(crate) fn iter_deck_pokemon(&self, player: usize) -> impl Iterator<Item = &Card> {

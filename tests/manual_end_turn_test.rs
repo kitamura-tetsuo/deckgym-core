@@ -4,17 +4,17 @@ use deckgym::{
     database::get_card_by_enum,
     to_playable_card,
     models::EnergyType,
-    State,
+
     test_helpers::load_test_decks,
     generate_possible_actions,
 };
-use rand::SeedableRng;
+
 
 #[test]
 fn test_manual_end_turn_still_possible() {
     let (deck_a, deck_b) = load_test_decks();
     use deckgym::{Game, players::RandomPlayer};
-    use deckgym::players::Player;
+
     
     // Create random players
     let player_a = Box::new(RandomPlayer { deck: deck_a.clone() });

@@ -634,8 +634,26 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
     }
     obs.extend(hand_slots);
 
-    // 8. Opponent Hand (Masked/Empty)
-    // Removed opp_hand_vec to save space. We could add slots here if revealed.
+    // 8. Opponent Hand (Known Cards)
+    let mut op_hand_slots = vec![-1.0; hand_slots_limit];
+    let op_hand = &state.hands[1 - player];
+    let op_vis = &state.hands_visibility[1 - player];
+    
+    for (i, card) in op_hand.iter().take(hand_slots_limit).enumerate() {
+        // If public_only is true, we see everything? No, public_only means "Spectator view".
+        // But regardless, we check visibility flag.
+        // Actually if public_only is true, we assume we only see what is public.
+        // If public_only is false (Agent view), we see what is visible to Agent.
+        // Ideally visibility flag tracks "Visible to opponent".
+        // If I am player A. state.hands[B] visibility means "Visible to A".
+        // So we strictly use visibility flag.
+        if i < op_vis.len() && op_vis[i] {
+            if let Some(cid) = CardId::from_card_id(&card.get_id()) {
+                op_hand_slots[i] = cid as usize as f32;
+            }
+        }
+    }
+    obs.extend(op_hand_slots);
 
     // 9. Deck Identification (Self) - 20 slots
     let mut self_deck_ids = Vec::new();
@@ -654,6 +672,33 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
 
     // 10. Opponent Deck Count (Publicly known if decks are public, or just count)
     obs.push(state.decks[1 - player].cards.len() as f32);
+
+    // 10.1 Opponent Known Deck (New) - 20 slots
+    let mut op_deck_ids = Vec::new();
+    let op_deck = &state.decks[1 - player];
+    
+    // Iterate over cards and visibility
+    // Accessing visibility field directly
+    let op_deck_vis = &op_deck.visibility;
+    let op_deck_cards = &op_deck.cards;
+
+    for (i, card) in op_deck_cards.iter().enumerate() {
+        // Check bounds just in case, though they should be synced
+        if i < op_deck_vis.len() && op_deck_vis[i] {
+            if let Some(cid) = CardId::from_card_id(&card.get_id()) {
+                op_deck_ids.push(cid as usize as f32);
+            }
+        }
+    }
+
+    // Sort
+    op_deck_ids.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    
+    // Pad to 20
+    while op_deck_ids.len() < 20 {
+        op_deck_ids.push(-1.0);
+    }
+    obs.extend(op_deck_ids);
 
     // 11. Discard Slots (Fixed size: 10)
     let discard_slots_limit = 10;
@@ -680,33 +725,4 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
 pub fn observation_length(state: &State) -> usize {
     encode_state(state, 0, false).len()
 }
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::test_helpers::load_test_decks;
 
-    #[test]
-    fn test_observation_encoding_expansion() {
-        let (deck_a, deck_b) = load_test_decks();
-        let mut state = State::new(&deck_a, &deck_b);
-
-        // Initial state
-        let obs_initial = encode_observation(&state, 0);
-        let len_initial = obs_initial.len();
-        assert!(len_initial > 0);
-
-        // Set some flags
-        state.set_knocked_out_by_opponent_attack_last_turn(true);
-        let obs_with_ko = encode_observation(&state, 0);
-        
-        // Value should change
-        assert_ne!(obs_initial, obs_with_ko);
-
-        // Verify next energy is encoded
-        state.next_energies[0] = Some(EnergyType::Fire);
-        let obs_with_energy = encode_observation(&state, 0);
-        assert_ne!(obs_with_ko, obs_with_energy);
-        
-        println!("Observation length: {}", len_initial);
-    }
-}

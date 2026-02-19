@@ -155,6 +155,7 @@ fn test_place_action() {
 
     let basic_pokemon = get_card_by_enum(CardId::A1001Bulbasaur);
     state.hands[current_player].push(basic_pokemon.clone());
+    state.hands_visibility[current_player].push(true);
     let action = SimpleAction::Place(basic_pokemon, 2);
 
     // Clear bench to ensure test predictability, as setup might have placed something
@@ -197,7 +198,7 @@ fn test_attach_action() {
     ); // no energy
 
     // Assert no Attach actions are available
-    let (actor, actions) = generate_possible_actions(&state);
+    let (actor, _) = generate_possible_actions(&state);
     // With auto-draw, we expect Attach actions to be possible if we have energy
     // so we remove the assertion that forbids them.
 

@@ -1081,7 +1081,7 @@ fn bench_count_damage_attack(
         .iter()
         .flat_map(|&player| state.enumerate_bench_pokemon(player))
         .filter(|(_, pokemon)| {
-            energy_type.is_none_or(|energy| pokemon.get_energy_type() == Some(energy))
+            energy_type.map_or(true, |energy| pokemon.get_energy_type() == Some(energy))
         })
         .count() as u32;
 
@@ -1285,7 +1285,7 @@ fn damage_and_discard_opponent_deck(
         let opponent = (action.actor + 1) % 2;
 
         for _ in 0..discard_count {
-            if let Some(card) = state.decks[opponent].draw() {
+            if let Some((card, _)) = state.decks[opponent].draw() {
                 state.discard_piles[opponent].push(card);
             } else {
                 break; // No more cards to discard

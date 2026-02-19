@@ -4,7 +4,7 @@ use deckgym::{
     database::get_card_by_enum,
     to_playable_card,
     models::EnergyType,
-    players::{Player, RandomPlayer},
+    players::RandomPlayer,
     test_helpers::load_test_decks,
     Game,
 };

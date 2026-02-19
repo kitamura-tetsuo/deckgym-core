@@ -4,7 +4,7 @@ use deckgym::{
     database::get_card_by_enum,
     hooks::to_playable_card,
     generate_possible_actions,
-    models::{EnergyType, Card},
+    models::EnergyType,
     State,
 };
 use rand::SeedableRng;
@@ -21,6 +21,7 @@ fn test_piers_requires_obstagoon_and_discards_energy() {
     state.in_play_pokemon[1][0].as_mut().unwrap().attached_energy.push(EnergyType::Grass);
     state.in_play_pokemon[1][0].as_mut().unwrap().attached_energy.push(EnergyType::Grass);
     state.hands[0].push(piers.clone());
+    state.hands_visibility[0].push(true);
 
     let mut rng = rand::rngs::StdRng::seed_from_u64(42);
 
@@ -48,6 +49,7 @@ fn test_sightseer_draws_stage1_pokemon() {
 
     state.turn_count = 1;
     state.hands[0].push(sightseer.clone());
+    state.hands_visibility[0].push(true);
     state.decks[0].cards = vec![
         ivysaur.clone(),
         bulbasaur.clone(),
@@ -79,6 +81,7 @@ fn test_juggler_requires_3_types_and_moves_energy() {
     // Case 1: Only 1 type (Water)
     state.in_play_pokemon[0][1].as_mut().unwrap().attached_energy.push(EnergyType::Water);
     state.hands[0].push(juggler.clone());
+    state.hands_visibility[0].push(true);
 
     let mut rng = rand::rngs::StdRng::seed_from_u64(42);
     let (_, actions) = generate_possible_actions(&state);

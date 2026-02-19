@@ -301,7 +301,9 @@ fn apply_return_pokemon_to_hand(acting_player: usize, state: &mut State, in_play
         .expect("Pokemon should be there if returning to hand");
     let mut cards_to_collect = played_card.cards_behind.clone();
     cards_to_collect.push(played_card.card.clone());
+    let count = cards_to_collect.len();
     state.hands[acting_player].extend(cards_to_collect);
+    state.hands_visibility[acting_player].extend(std::iter::repeat(true).take(count));
 
     // If returning the active, trigger promotion or declare winner.
     if in_play_idx == 0 {
@@ -715,6 +717,7 @@ mod tests {
         healthy_bench.attached_energy = vec![energy, energy, energy];
         state.in_play_pokemon[0][2] = Some(healthy_bench);
         state.hands[0] = vec![primeape.clone(), primeape.clone()];
+        state.hands_visibility[0] = vec![false, false];
 
         // Evolve Active
         apply_evolve(0, &mut state, &primeape, 0, false);

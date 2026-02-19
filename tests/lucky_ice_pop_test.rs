@@ -23,6 +23,7 @@ mod tests {
 
         // Hand: Lucky Ice Pop
         state.hands[0].push(lucky_ice_pop.clone());
+        state.hands_visibility[0].push(true);
 
         let trainer_card = match &lucky_ice_pop {
             deckgym::models::Card::Trainer(t) => t,
@@ -96,6 +97,7 @@ mod tests {
 
         // Hand: Lucky Ice Pop
         state.hands[0].push(lucky_ice_pop.clone());
+        state.hands_visibility[0].push(true);
 
         let trainer_card = match &lucky_ice_pop {
             deckgym::models::Card::Trainer(t) => t,

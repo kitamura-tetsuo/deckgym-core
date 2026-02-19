@@ -30,6 +30,7 @@ fn test_pokemon_center_lady_heals_30_damage() {
         booster_pack: "Shining Revelry (A2b)".to_string(),
     });
     state.hands[current_player].push(pokemon_center_lady.clone());
+    state.hands_visibility[current_player].push(true);
     game.set_state(state);
 
     // Verify initial state
@@ -98,6 +99,7 @@ fn test_pokemon_center_lady_cures_poisoned() {
         booster_pack: "Shining Revelry (A2b)".to_string(),
     });
     state.hands[current_player].push(pokemon_center_lady.clone());
+    state.hands_visibility[current_player].push(true);
     game.set_state(state);
 
     // Verify initial state
@@ -170,6 +172,7 @@ fn test_pokemon_center_lady_heals_and_cures_together() {
         booster_pack: "Shining Revelry (A2b)".to_string(),
     });
     state.hands[current_player].push(pokemon_center_lady.clone());
+    state.hands_visibility[current_player].push(true);
     game.set_state(state);
 
     // Verify initial state

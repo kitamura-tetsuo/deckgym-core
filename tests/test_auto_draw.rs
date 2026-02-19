@@ -3,12 +3,12 @@
 mod tests {
     use deckgym::{
         generate_possible_actions,
-        actions::{Action, SimpleAction},
+        actions::SimpleAction,
         players::{Player, RandomPlayer},
-        Game, State,
+        Game,
         test_helpers::load_test_decks,
     };
-    use rand::SeedableRng;
+
 
     #[test]
     fn test_auto_draw_at_turn_start() {

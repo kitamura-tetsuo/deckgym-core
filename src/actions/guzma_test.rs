@@ -30,6 +30,7 @@ fn test_guzma_discards_multiple_tools() {
     let guzma_card_enum = get_card_by_enum(CardId::A3151Guzma);
     let guzma_card = if let crate::models::Card::Trainer(tc) = &guzma_card_enum { tc.clone() } else { panic!("Guzma should be a trainer card") };
     state.hands[0].push(guzma_card_enum.clone());
+    state.hands_visibility[0].push(true);
 
     // Act: Play Guzma
     let action = Action {

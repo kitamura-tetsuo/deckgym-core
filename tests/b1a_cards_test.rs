@@ -567,6 +567,7 @@ fn test_quick_grow_extract_evolves_from_deck() {
 
     // Clear the hand, deck, and in-play to have a controlled test environment
     state.hands[0].clear();
+    state.hands_visibility[0].clear();
     state.decks[0].cards.clear();
     state.in_play_pokemon[0] = Default::default();
 
@@ -585,6 +586,7 @@ fn test_quick_grow_extract_evolves_from_deck() {
     // Put Quick-Grow Extract in hand
     let extract = get_card_by_enum(CardId::B1a067QuickGrowExtract);
     state.hands[0].push(extract.clone());
+    state.hands_visibility[0].push(true);
 
     game.set_state(state);
 
@@ -629,6 +631,7 @@ fn test_charmeleon_ignition() {
 
         let charmeleon = get_card_by_enum(CardId::B1a012Charmeleon);
         state.hands[0].push(charmeleon.clone());
+        state.hands_visibility[0].push(true);
 
         game.set_state(state);
         (game, charmeleon)

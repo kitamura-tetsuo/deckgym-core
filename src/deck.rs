@@ -13,12 +13,14 @@ use crate::models::{Card, EnergyType};
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Deck {
     pub cards: Vec<Card>,
+    pub visibility: Vec<bool>,
     pub(crate) energy_types: Vec<EnergyType>,
 }
 
 impl Hash for Deck {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.cards.hash(state);
+        self.visibility.hash(state);
         // order energy types alphabetically to ensure consistent hash
         let mut energy_types: Vec<_> = self.energy_types.iter().collect();
         energy_types.sort();
@@ -70,8 +72,11 @@ impl Deck {
             });
         }
 
+        let visibility = vec![false; cards.len()];
+
         Ok(Self {
             cards,
+            visibility,
             energy_types: energy_types.into_iter().collect(),
         })
     }
@@ -98,20 +103,25 @@ impl Deck {
     }
 
     /// Draws a card from the deck.
-    /// Returns `Some(Card)` if the deck is not empty, otherwise returns `None`.
-    pub fn draw(&mut self) -> Option<Card> {
+    /// Returns `Some((Card, bool))` if the deck is not empty, otherwise returns `None`.
+    pub fn draw(&mut self) -> Option<(Card, bool)> {
         if self.cards.is_empty() {
             None
         } else {
-            Some(self.cards.remove(0))
+            let vis = if !self.visibility.is_empty() {
+                self.visibility.remove(0)
+            } else {
+                false
+            };
+            Some((self.cards.remove(0), vis))
         }
     }
 
-    pub fn draw_multiple(&mut self, amount: u8) -> Vec<Card> {
+    pub fn draw_multiple(&mut self, amount: u8) -> Vec<(Card, bool)> {
         let mut drawn_cards = Vec::new();
         for _ in 0..amount {
-            if let Some(card) = self.draw() {
-                drawn_cards.push(card);
+            if let Some(card_with_vis) = self.draw() {
+                drawn_cards.push(card_with_vis);
             } else {
                 break;
             }
@@ -135,8 +145,20 @@ impl Deck {
             remaining.shuffle(rng);
 
             self.cards = [shuffled_cards, remaining].concat();
+            // Reset visibility on initial shuffle
+            self.visibility = vec![false; self.cards.len()];
         } else {
-            self.cards.shuffle(rng);
+            // Zip shuffle to preserve visibility
+            if self.visibility.len() != self.cards.len() {
+                // Ensure visibility length matches cards length (recovery from bad state)
+                self.visibility.resize(self.cards.len(), false);
+            }
+            let mut combined: Vec<(Card, bool)> = self.cards.drain(..).zip(self.visibility.drain(..)).collect();
+            combined.shuffle(rng);
+            for (c, v) in combined {
+                self.cards.push(c);
+                self.visibility.push(v);
+            }
         }
     }
 }
@@ -201,6 +223,7 @@ mod tests {
         let initial_count = deck.cards.len();
         let drawn_card = deck.draw();
         assert!(drawn_card.is_some(), "Should draw a card");
+        assert!(matches!(drawn_card, Some((Card::Pokemon(_), false))));
         assert_eq!(
             deck.cards.len(),
             initial_count - 1,
