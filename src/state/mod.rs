@@ -134,11 +134,6 @@ impl State {
         // Pre-sample initial next energies to avoid initialization issues
         state.next_energies[0] = state.sample_energy(0, rng);
         state.next_energies[1] = state.sample_energy(1, rng);
-        // Set initial current energy for player 0
-        state.current_energy = state.next_energies[0];
-        // Re-sample next energy for player 0 since current was just consumed/set
-        state.next_energies[0] = state.sample_energy(0, rng);
-
         state
     }
 

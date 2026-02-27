@@ -237,7 +237,7 @@ mod tests {
 
         // Now play the rest. AA should win b.c. ET has no bench pokemon
         let winner = game.play();
-        assert_eq!(game.get_state_clone().turn_count, 4);
+        assert_eq!(game.get_state_clone().turn_count, 5);
         assert_eq!(winner, Some(GameOutcome::Win(0)));
     }
 
