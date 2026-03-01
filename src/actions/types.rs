@@ -99,6 +99,7 @@ pub enum SimpleAction {
     /// Sableye's Dirty Throw: discard a specific card from own hand
     DiscardOwnCard {
         card: Card,
+        amount_left: usize,
     },
     /// Lusamine: attach energies from discard to a Pokemon
     AttachFromDiscard {
@@ -221,8 +222,8 @@ impl fmt::Display for SimpleAction {
             SimpleAction::DiscardOpponentSupporter { supporter_card } => {
                 write!(f, "DiscardOpponentSupporter({supporter_card})")
             }
-            SimpleAction::DiscardOwnCard { card } => {
-                write!(f, "DiscardOwnCard({card})")
+            SimpleAction::DiscardOwnCard { card, amount_left } => {
+                write!(f, "DiscardOwnCard({card}, {amount_left})")
             }
             SimpleAction::AttachFromDiscard {
                 in_play_idx,

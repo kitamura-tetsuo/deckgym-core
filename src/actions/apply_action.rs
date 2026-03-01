@@ -80,8 +80,8 @@ pub fn forecast_action(state: &State, action: &Action) -> (Probabilities, Mutati
         SimpleAction::DiscardOpponentSupporter { supporter_card } => {
             forecast_discard_opponent_supporter(action.actor, supporter_card)
         }
-        SimpleAction::DiscardOwnCard { card } => {
-            forecast_discard_own_card(action.actor, card)
+        SimpleAction::DiscardOwnCard { card, amount_left } => {
+            forecast_discard_own_card(action.actor, card, *amount_left)
         }
         SimpleAction::AttachFromDiscard {
             in_play_idx,
@@ -596,16 +596,30 @@ fn forecast_discard_opponent_supporter(
     )
 }
 
-fn forecast_discard_own_card(acting_player: usize, card: &Card) -> (Probabilities, Mutations) {
+fn forecast_discard_own_card(acting_player: usize, card: &Card, amount_left: usize) -> (Probabilities, Mutations) {
     let card_clone = card.clone();
     (
         vec![1.0],
         vec![Box::new(move |_rng, state, _action| {
             state.discard_card_from_hand(acting_player, &card_clone);
             debug!(
-                "Sableye's Dirty Throw: Discarded {:?} from hand",
+                "Discarded {:?} from hand",
                 card_clone
             );
+            if amount_left > 1 {
+                let remaining = amount_left - 1;
+                let hand_cards: Vec<Card> = state.hands[acting_player].clone();
+                if !hand_cards.is_empty() {
+                    // Collect unique cards to avoid duplicate actions if same card is present multiple times
+                    // Wait, our choices representation natively supports duplicate items if hand_cards contains duplicates! 
+                    // Let's just create one choice per card in hand
+                    let possible_discards: Vec<SimpleAction> = hand_cards
+                        .into_iter()
+                        .map(|c| SimpleAction::DiscardOwnCard { card: c, amount_left: remaining })
+                        .collect();
+                    state.move_generation_stack.push((acting_player, possible_discards));
+                }
+            }
         })],
     )
 }

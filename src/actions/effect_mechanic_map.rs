@@ -62,7 +62,7 @@ pub static EFFECT_MECHANIC_MAP: LazyLock<HashMap<&'static str, Mechanic>> = Lazy
         },
     );
     // map.insert("Discard 2 [R] Energy from this Pokémon. This attack does 80 damage to 1 of your opponent's Pokémon.", todo_implementation);
-    // map.insert("Discard 2 cards from your hand. If you can't discard 2 cards, this attack does nothing.", todo_implementation);
+    map.insert("Discard 2 cards from your hand. If you can't discard 2 cards, this attack does nothing.", Mechanic::DiscardHandCard { count: 2 });
     // map.insert("Discard 2 random Energy from this Pokémon.", todo_implementation);
     map.insert("Discard 3 [W] Energy from this Pokémon. This attack also does 20 damage to each of your opponent's Benched Pokémon.", Mechanic::PalkiaExDimensionalStorm);
     map.insert(

@@ -1,4 +1,5 @@
 use crate::{
+    actions::{attacks::Mechanic, EFFECT_MECHANIC_MAP},
     actions::SimpleAction,
     effects::CardEffect,
     hooks::{contains_energy, get_attack_cost},
@@ -39,6 +40,17 @@ pub(crate) fn generate_attack_actions(state: &State) -> Vec<SimpleAction> {
                     .any(|name| name == &attack.title);
                 if attack_is_restricted {
                     continue;
+                }
+
+                // Check mechanic-specific conditions for using the attack
+                if let Some(effect_text) = &attack.effect {
+                    if let Some(mechanic) = EFFECT_MECHANIC_MAP.get(effect_text.as_str()) {
+                        if let Mechanic::DiscardHandCard { count } = mechanic {
+                            if state.hands[current_player].len() < *count {
+                                continue;
+                            }
+                        }
+                    }
                 }
 
                 actions.push(SimpleAction::Attack(i));

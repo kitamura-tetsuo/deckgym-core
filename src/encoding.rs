@@ -228,7 +228,7 @@ pub fn encode_action(action: &SimpleAction) -> Option<usize> {
              let card_id = CardId::from_card_id(&supporter_card.get_id())?;
              Some(get_offset_discard_opponent_supporter() + card_id as usize)
         },
-        SimpleAction::DiscardOwnCard { card } => {
+        SimpleAction::DiscardOwnCard { card, .. } => {
              let card_id = CardId::from_card_id(&card.get_id())?;
              Some(get_offset_discard_own_card() + card_id as usize)
         },

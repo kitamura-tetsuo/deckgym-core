@@ -180,3 +180,110 @@ fn test_dialga_rocky_helmet_knockout_with_energy_attach() {
         total_metal_on_bench
     );
 }
+
+#[test]
+fn test_discard_hand_card_attack() {
+    // Cofagrigus B1 111: Soul Shot (120 damage, discard 2 cards)
+    let cofagrigus_card = get_card_by_enum(CardId::B1111Cofagrigus);
+
+    let mut game = get_initialized_game(42);
+    let mut state = game.get_state_clone();
+    state.current_player = 0;
+
+    // Set up Player 0 with Cofagrigus in active
+    let active_cofagrigus = PlayedCard::new(
+        cofagrigus_card,
+        120,
+        120,
+        vec![EnergyType::Psychic, EnergyType::Psychic],
+        false,
+        vec![],
+    );
+    state.in_play_pokemon[0][0] = Some(active_cofagrigus);
+
+    // Give opponent an active
+    state.in_play_pokemon[1][0] = Some(
+        PlayedCard::from_id(CardId::A1001Bulbasaur)
+            .with_hp(200),
+    );
+
+    use deckgym::generate_possible_actions;
+
+    // Case 1: Player 0 has 1 card in hand (less than 2). Attack does nothing -> Attack is invalid.
+    state.hands[0] = vec![get_card_by_enum(CardId::A1001Bulbasaur)];
+    game.set_state(state.clone());
+
+    let (actor, valid_actions) = generate_possible_actions(game.state());
+    assert_eq!(actor, 0);
+    // There shouldn't be an Attack(0) action available
+    assert!(
+        !valid_actions.iter().any(|a| matches!(a.action, SimpleAction::Attack(0))),
+        "Attack should not be selectable with 1 card in hand"
+    );
+
+    // Case 2: Player has 2 cards. Attack works, prompts for 2 discards.
+    state.hands[0] = vec![
+        get_card_by_enum(CardId::A1001Bulbasaur),
+        get_card_by_enum(CardId::A1033Charmander),
+        get_card_by_enum(CardId::A1053Squirtle),
+    ];
+    game.set_state(state);
+    
+    let (_actor, valid_actions_case2) = generate_possible_actions(game.state());
+    assert!(
+        valid_actions_case2.iter().any(|a| matches!(a.action, SimpleAction::Attack(0))),
+        "Attack should be selectable with 2+ cards in hand"
+    );
+    
+    let attack_action = Action {
+        actor: 0,
+        action: SimpleAction::Attack(0),
+        is_stack: false,
+    };
+    game.apply_action(&attack_action);
+    
+    let mut state_after_attack = game.get_state_clone();
+    // Opponent takes 120 damage
+    assert_eq!(state_after_attack.get_active(1).remaining_hp, 80);
+    
+    // Check if move generation stack asks for first discard
+    assert!(!state_after_attack.move_generation_stack.is_empty());
+    let (actor, choices) = state_after_attack.move_generation_stack.last().unwrap();
+    assert_eq!(*actor, 0);
+    assert!(matches!(&choices[0], SimpleAction::DiscardOwnCard { .. }));
+    
+    // Discard first card
+    let discard1 = Action {
+        actor: 0,
+        action: choices[0].clone(),
+        is_stack: true, // It's popped from stack, wait, is_stack just skips checks in API, in tests it doesn't matter for `apply_action`
+    };
+    game.apply_action(&discard1);
+    
+    state_after_attack = game.get_state_clone();
+    assert_eq!(state_after_attack.hands[0].len(), 2);
+    
+    // Should ask for second discard
+    assert!(!state_after_attack.move_generation_stack.is_empty());
+    let (actor, choices) = state_after_attack.move_generation_stack.last().unwrap();
+    assert_eq!(*actor, 0);
+    assert!(matches!(&choices[0], SimpleAction::DiscardOwnCard { .. }));
+    
+    // Discard second card
+    let discard2 = Action {
+        actor: 0,
+        action: choices[0].clone(),
+        is_stack: true,
+    };
+    game.apply_action(&discard2);
+    
+    state_after_attack = game.get_state_clone();
+    assert_eq!(state_after_attack.hands[0].len(), 1);
+    
+    // Both discards done
+    if !state_after_attack.move_generation_stack.is_empty() {
+        // Might be just end turn action
+        let last = state_after_attack.move_generation_stack.last().unwrap();
+        assert!(matches!(last.1[0], SimpleAction::EndTurn));
+    }
+}

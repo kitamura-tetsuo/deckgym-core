@@ -1951,7 +1951,7 @@ fn dirty_throw_attack(acting_player: usize, state: &State) -> (Probabilities, Mu
         active_damage_effect_doutcome(70, move |_, state, action| {
             let possible_discards: Vec<SimpleAction> = state.hands[action.actor]
                 .iter()
-                .map(|card| SimpleAction::DiscardOwnCard { card: card.clone() })
+                .map(|card| SimpleAction::DiscardOwnCard { card: card.clone(), amount_left: 1 })
                 .collect();
 
             if !possible_discards.is_empty() {
@@ -1974,7 +1974,7 @@ fn discard_hand_card_attack(
         active_damage_effect_doutcome(damage, move |_, state, action| {
             let possible_discards: Vec<SimpleAction> = state.hands[action.actor]
                 .iter()
-                .map(|card| SimpleAction::DiscardOwnCard { card: card.clone() })
+                .map(|card| SimpleAction::DiscardOwnCard { card: card.clone(), amount_left: count })
                 .collect();
 
             if !possible_discards.is_empty() {
