@@ -119,6 +119,7 @@ pub(crate) fn forecast_ability(
             panic!("Infinite Increase is a passive ability")
         }
         AbilityId::B1a065FurfrouFurCoat => unreachable!("Handled by AbilityMechanic"),
+        AbilityId::B1120KlefkiDismantlingKeys => doutcome(klefki_dismantling_keys),
         AbilityId::A4a032MisdreavusInfiltratingInspection => {
             panic!("Infiltrating Inspection is triggered when played to bench")
         }
@@ -470,4 +471,29 @@ fn vaporeon_wash_out(_: &mut StdRng, state: &mut State, action: &Action) {
     state
         .move_generation_stack
         .push((acting_player, possible_moves));
+}
+
+fn klefki_dismantling_keys(_: &mut StdRng, state: &mut State, action: &Action) {
+    // Once during your turn, if this Pokémon is on your Bench, you may discard all Pokémon Tools from your opponent's Active Pokémon. If you do, discard this Pokémon.
+    debug!("Klefki's Dismantling Keys: Discarding opponent's active tools and discarding itself");
+    let SimpleAction::UseAbility {
+        in_play_idx: klefki_idx,
+    } = action.action
+    else {
+        panic!("Klefki's ability should be triggered by UseAbility action");
+    };
+
+    let acting_player = action.actor;
+    let opponent = (acting_player + 1) % 2;
+
+    // Discard tool from opponent's Active Pokémon
+    let opponent_active = state.in_play_pokemon[opponent][0]
+        .as_mut()
+        .expect("Opponent should have active Pokemon");
+    if let Some(tool) = opponent_active.attached_tool.take() {
+        state.discard_piles[opponent].push(tool);
+    }
+
+    // Discard Klefki itself from play
+    state.discard_from_play(acting_player, klefki_idx);
 }

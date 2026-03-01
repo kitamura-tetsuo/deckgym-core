@@ -103,8 +103,9 @@ fn can_use_ability(state: &State, (in_play_index, card): (usize, &PlayedCard)) -
         AbilityId::B1a012CharmeleonIgnition => false,   // Triggered on evolve
         AbilityId::B1a018WartortleShellShield => false, // Passive ability
         AbilityId::B1a034ReuniclusInfiniteIncrease => false, // Passive ability
-        AbilityId::B1a065FurfrouFurCoat => unreachable!("Handled by AbilityMechanic"),
-        AbilityId::A4a032MisdreavusInfiltratingInspection => false, // Triggered when played to bench
+        AbilityId::B1a065FurfrouFurCoat => false, // Passive ability, triggers via hooks
+        AbilityId::B1120KlefkiDismantlingKeys => can_use_klefki_dismantling_keys(state, card, is_active),
+        AbilityId::A4a032MisdreavusInfiltratingInspection => false, // Triggered when played from hand to bench
         AbilityId::A1007Butterfree | AbilityId::A2022ShayminFragrantFlowerGarden => {
             unreachable!("Handled by AbilityMechanic")
         }
@@ -215,4 +216,15 @@ fn can_use_vaporeon_wash_out(state: &State) -> bool {
             pokemon.card.get_type() == Some(EnergyType::Water)
                 && pokemon.attached_energy.contains(&EnergyType::Water)
         })
+}
+
+fn can_use_klefki_dismantling_keys(state: &State, card: &PlayedCard, is_active: bool) -> bool {
+    let opponent = (state.current_player + 1) % 2;
+    // Klefki must be on the bench, its ability must not have been used this turn,
+    // and the opponent's active Pokémon must have a tool attached.
+    !is_active
+        && !card.ability_used
+        && state.in_play_pokemon[opponent][0]
+            .as_ref()
+            .is_some_and(|p| p.has_tool_attached())
 }
