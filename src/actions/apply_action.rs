@@ -32,6 +32,7 @@ pub fn apply_action(rng: &mut StdRng, state: &mut State, action: &Action) {
         let chosen_index = dist.sample(rng);
         lazy_mutations.remove(chosen_index)(rng, state, action);
     }
+    state.apply_passive_status_cures();
 }
 
 /// This should be mostly a "router" function that calls the appropriate forecast function

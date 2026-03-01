@@ -66,10 +66,8 @@ fn test_gourgeist_soul_shot_fails_if_hand_empty() {
     let mut rng = rand::rngs::StdRng::seed_from_u64(42);
     
     let (_, actions) = generate_possible_actions(&state);
-    let attack_action = actions.iter().find(|a| matches!(a.action, SimpleAction::Attack(_))).expect("Should have attack action");
+    let attack_action = actions.iter().find(|a| matches!(a.action, SimpleAction::Attack(_)));
     
-    apply_action(&mut rng, &mut state, attack_action);
-
-    // Verify NO damage dealt
-    assert_eq!(state.in_play_pokemon[1][0].as_ref().unwrap().remaining_hp, 90);
+    // The attack requires a discard, so since hand is empty, it should not be generated as a choice
+    assert!(attack_action.is_none());
 }

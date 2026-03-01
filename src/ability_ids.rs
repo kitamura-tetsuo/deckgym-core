@@ -26,6 +26,7 @@ pub enum AbilityId {
     A2110DarkraiExNightmareAura,
     A2b035GiratinaExBrokenSpaceBellow,
     A3066OricoricSafeguard,
+    A3080ComfeyFlowerShield,
     A3122SolgaleoExRisingRoad,
     A3141KomalaComatose,
     A3a015LuxrayIntimidatingFang,
@@ -113,6 +114,7 @@ lazy_static::lazy_static! {
         m.insert("A2b 096", AbilityId::A2b035GiratinaExBrokenSpaceBellow);
         // A3
         m.insert("A3 066", AbilityId::A3066OricoricSafeguard);
+        m.insert("A3 080", AbilityId::A3080ComfeyFlowerShield);
         m.insert("A3 122", AbilityId::A3122SolgaleoExRisingRoad);
         m.insert("A3 141", AbilityId::A3141KomalaComatose);
         m.insert("A3 234", AbilityId::A1123GengarExShadowySpellbind);

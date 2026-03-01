@@ -14,7 +14,7 @@ use crate::{
     models::{Card, EnergyType},
 };
 
-pub use played_card::{has_serperior_jungle_totem, PlayedCard};
+pub use played_card::{has_comfey_flower_shield, has_serperior_jungle_totem, PlayedCard};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GameOutcome {
@@ -266,6 +266,24 @@ impl State {
 
         self.has_played_support = false;
         self.has_retreated = false;
+    }
+
+    pub(crate) fn apply_passive_status_cures(&mut self) {
+        for player in 0..2 {
+            if crate::state::has_comfey_flower_shield(self, player) {
+                let mut indices_to_cure = Vec::new();
+                for (i, p) in self.enumerate_in_play_pokemon(player) {
+                    if p.attached_energy.contains(&EnergyType::Psychic) && p.has_status_condition() {
+                        indices_to_cure.push(i);
+                    }
+                }
+                for i in indices_to_cure {
+                    if let Some(p) = self.in_play_pokemon[player][i].as_mut() {
+                        p.cure_status_conditions();
+                    }
+                }
+            }
+        }
     }
 
     /// Adds an effect card that will remain active for a specified number of turns.

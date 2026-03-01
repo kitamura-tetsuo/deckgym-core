@@ -66,6 +66,7 @@ fn can_use_ability(state: &State, (in_play_index, card): (usize, &PlayedCard)) -
         AbilityId::A2110DarkraiExNightmareAura => false,
         AbilityId::A2b035GiratinaExBrokenSpaceBellow => !card.ability_used,
         AbilityId::A3066OricoricSafeguard => false,
+        AbilityId::A3080ComfeyFlowerShield => false, // Passive ability, evaluated during status effects
         AbilityId::A3122SolgaleoExRisingRoad => !is_active && !card.ability_used,
         AbilityId::A3141KomalaComatose => false,
         AbilityId::A3a015LuxrayIntimidatingFang => false,

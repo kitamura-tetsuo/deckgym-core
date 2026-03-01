@@ -334,6 +334,14 @@ pub fn has_serperior_jungle_totem(state: &State, player: usize) -> bool {
     })
 }
 
+pub fn has_comfey_flower_shield(state: &State, player: usize) -> bool {
+    state.enumerate_in_play_pokemon(player).any(|(_, pokemon)| {
+        AbilityId::from_pokemon_id(&pokemon.get_id()[..])
+            .map(|id| id == AbilityId::A3080ComfeyFlowerShield)
+            .unwrap_or(false)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{

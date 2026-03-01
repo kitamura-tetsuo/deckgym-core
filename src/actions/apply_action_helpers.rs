@@ -281,6 +281,9 @@ fn apply_pokemon_checkup(
     mutated_state.knocked_out_by_opponent_attack_last_turn =
         mutated_state.knocked_out_by_opponent_attack_this_turn;
     mutated_state.knocked_out_by_opponent_attack_this_turn = false;
+
+    mutated_state.apply_passive_status_cures();
+
     mutated_state.advance_turn(rng);
 }
 
