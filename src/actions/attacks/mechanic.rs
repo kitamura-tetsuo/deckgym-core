@@ -226,6 +226,10 @@ pub enum Mechanic {
     DiscardOpponentDeck {
         count: u32,
     },
+    ExtraDamageForEachTypeInDiscard {
+        energy_type: EnergyType,
+        damage_per: u32,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

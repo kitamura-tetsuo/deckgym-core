@@ -542,6 +542,15 @@ fn forecast_effect_attack_by_mechanic(
         Mechanic::DiscardHandCard { count } => {
             discard_hand_card_attack(attack.fixed_damage, *count, state)
         }
+        Mechanic::ExtraDamageForEachTypeInDiscard {
+            energy_type,
+            damage_per,
+        } => extra_damage_for_each_type_in_discard_attack(
+            state,
+            attack.fixed_damage,
+            *energy_type,
+            *damage_per,
+        ),
         _ => unreachable!("New variants only used for vectorization: {:?}", mechanic),
     }
 }
@@ -1984,6 +1993,27 @@ fn discard_hand_card_attack(
             }
         })
     }
+}
+
+/// For Houndstone's Last Respects: 50 + 20 for each [P] Pokémon in your discard pile.
+fn extra_damage_for_each_type_in_discard_attack(
+    state: &State,
+    base_damage: u32,
+    energy_type: EnergyType,
+    damage_per: u32,
+) -> (Probabilities, Mutations) {
+    let psychic_count = state.discard_piles[state.current_player]
+        .iter()
+        .filter(|card| {
+            if let crate::models::Card::Pokemon(pokemon) = card {
+                pokemon.energy_type == energy_type
+            } else {
+                false
+            }
+        })
+        .count() as u32;
+    let total_damage = base_damage + psychic_count * damage_per;
+    active_damage_doutcome(total_damage)
 }
 
 /// For Umbreon's Dark Binding: If the Defending Pokémon is a Basic Pokémon, it can't attack during your opponent's next turn.
