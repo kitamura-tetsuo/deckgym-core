@@ -35,11 +35,12 @@ impl State {
     ) {
         // Remove energies from discard pile
         for energy in energies {
-            let pos = self.discard_energies[player]
+            if let Some(pos) = self.discard_energies[player]
                 .iter()
                 .position(|e| e == energy)
-                .unwrap_or(0);
-            self.discard_energies[player].remove(pos);
+            {
+                self.discard_energies[player].remove(pos);
+            }
         }
 
         // Attach energies to Pokemon
