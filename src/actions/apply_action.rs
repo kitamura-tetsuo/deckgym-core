@@ -306,7 +306,7 @@ fn apply_return_pokemon_to_hand(acting_player: usize, state: &mut State, in_play
     cards_to_collect.push(played_card.card.clone());
     let count = cards_to_collect.len();
     state.hands[acting_player].extend(cards_to_collect);
-    state.hands_visibility[acting_player].extend(std::iter::repeat(true).take(count));
+    state.hands_visibility[acting_player].extend(std::iter::repeat_n(true, count));
 
     // If returning the active, trigger promotion or declare winner.
     if in_play_idx == 0 {

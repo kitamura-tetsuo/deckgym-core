@@ -719,7 +719,7 @@ fn koga_effect(_: &mut StdRng, state: &mut State, action: &Action) {
     cards_to_collect.push(active_pokemon.card.clone());
     let count = cards_to_collect.len();
     state.hands[action.actor].extend(cards_to_collect);
-    state.hands_visibility[action.actor].extend(std::iter::repeat(true).take(count));
+    state.hands_visibility[action.actor].extend(std::iter::repeat_n(true, count));
     // Energy dissapears
     state.in_play_pokemon[action.actor][0] = None;
 

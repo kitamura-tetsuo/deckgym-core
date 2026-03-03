@@ -58,7 +58,7 @@ impl App {
 
         let mode = if has_human {
             // Interactive mode - create live game
-            let players: Vec<Box<dyn Player>> = create_players(deck_a, deck_b, player_codes);
+            let players: Vec<Box<dyn Player + Send>> = create_players(deck_a, deck_b, player_codes);
             let game = Box::new(Game::new(players, seed));
 
             // Get initial state and possible actions
@@ -74,7 +74,7 @@ impl App {
             }
         } else {
             // Replay mode - pre-compute entire game
-            let players: Vec<Box<dyn Player>> = create_players(deck_a, deck_b, player_codes);
+            let players: Vec<Box<dyn Player + Send>> = create_players(deck_a, deck_b, player_codes);
             let mut game = Game::new(players, seed);
 
             let mut states = Vec::new();

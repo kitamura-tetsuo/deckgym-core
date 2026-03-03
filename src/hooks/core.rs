@@ -746,18 +746,13 @@ fn get_stadium_damage_modifier(state: &State, attacking_pokemon: &PlayedCard) ->
     use crate::card_ids::CardId;
 
     if let Some(stadium) = state.get_stadium() {
-        if let Some(stadium_id) = CardId::from_card_id(&stadium.get_id()) {
-            match stadium_id {
-                CardId::B2153TrainingArea => {
-                    // Training Area: Attacks used by Stage 1 Pokémon do +10 damage
-                    if let Card::Pokemon(pokemon_card) = &attacking_pokemon.card {
-                        if pokemon_card.stage == 1 {
-                            debug!("Training Area: Adding +10 damage for Stage 1 Pokemon");
-                            return 10;
-                        }
-                    }
+        if let Some(CardId::B2153TrainingArea) = CardId::from_card_id(&stadium.get_id()) {
+            // Training Area: Attacks used by Stage 1 Pokémon do +10 damage
+            if let Card::Pokemon(pokemon_card) = &attacking_pokemon.card {
+                if pokemon_card.stage == 1 {
+                    debug!("Training Area: Adding +10 damage for Stage 1 Pokemon");
+                    return 10;
                 }
-                _ => {}
             }
         }
     }

@@ -1112,7 +1112,7 @@ fn bench_count_damage_attack(
         .iter()
         .flat_map(|&player| state.enumerate_bench_pokemon(player))
         .filter(|(_, pokemon)| {
-            energy_type.map_or(true, |energy| pokemon.get_energy_type() == Some(energy))
+            energy_type.is_none_or(|energy| pokemon.get_energy_type() == Some(energy))
         })
         .count() as u32;
 
@@ -2218,10 +2218,10 @@ fn calculate_binomial_probabilities_with_will(n: usize, guaranteed_first_heads: 
         probs[0] = 0.0;
 
         // For k >= 1, it's the probability of getting (k-1) heads from (n-1) flips
-        for k in 1..=n {
+        for (k, prob) in probs.iter_mut().enumerate().take(n + 1).skip(1) {
             let remaining_heads = k - 1;
             let coef = binomial_coefficient(n - 1, remaining_heads);
-            probs[k] = coef as f64 / (1 << (n - 1)) as f64;
+            *prob = coef as f64 / (1 << (n - 1)) as f64;
         }
         probs
     } else {
