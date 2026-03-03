@@ -951,13 +951,11 @@ fn flame_patch_effect(_: &mut StdRng, state: &mut State, action: &Action) {
     let player = action.actor;
 
     // Find and remove a Fire energy from discard pile
-    if let Some(fire_idx) = state.discard_energies[player]
+    if state.discard_energies[player]
         .iter()
-        .position(|energy| *energy == EnergyType::Fire)
+        .any(|energy| *energy == EnergyType::Fire)
     {
-        state.discard_energies[player].remove(fire_idx);
-
-        // Attach it to the active Pokemon
+        // Attach it to the active Pokemon (attach_energy_from_discard removes it from the discard pile)
         state.attach_energy_from_discard(player, 0, &[EnergyType::Fire]);
     }
 }

@@ -390,14 +390,7 @@ fn combust(_: &mut StdRng, state: &mut State, action: &Action) {
         panic!("Flareon ex's ability should be triggered by UseAbility action");
     };
 
-    // Remove Fire Energy from discard pile
-    let fire_position = state.discard_energies[action.actor]
-        .iter()
-        .position(|e| *e == EnergyType::Fire)
-        .expect("Should have Fire Energy in discard pile");
-    state.discard_energies[action.actor].swap_remove(fire_position);
-
-    // Attach the Fire Energy to Flareon EX
+    // Attach the Fire Energy to Flareon EX (attach_energy_from_discard removes it from the discard pile)
     state.attach_energy_from_discard(action.actor, in_play_idx, &[EnergyType::Fire]);
 
     // Deal 20 damage to Flareon EX using handle_damage
