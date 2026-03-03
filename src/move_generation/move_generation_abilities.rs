@@ -103,8 +103,10 @@ fn can_use_ability(state: &State, (in_play_index, card): (usize, &PlayedCard)) -
         AbilityId::B1a012CharmeleonIgnition => false,   // Triggered on evolve
         AbilityId::B1a018WartortleShellShield => false, // Passive ability
         AbilityId::B1a034ReuniclusInfiniteIncrease => false, // Passive ability
-        AbilityId::B1a065FurfrouFurCoat => false, // Passive ability, triggers via hooks
-        AbilityId::B1120KlefkiDismantlingKeys => can_use_klefki_dismantling_keys(state, card, is_active),
+        AbilityId::B1a065FurfrouFurCoat => false,       // Passive ability, triggers via hooks
+        AbilityId::B1120KlefkiDismantlingKeys => {
+            can_use_klefki_dismantling_keys(state, card, is_active)
+        }
         AbilityId::A4a032MisdreavusInfiltratingInspection => false, // Triggered when played from hand to bench
         AbilityId::A1007Butterfree | AbilityId::A2022ShayminFragrantFlowerGarden => {
             unreachable!("Handled by AbilityMechanic")

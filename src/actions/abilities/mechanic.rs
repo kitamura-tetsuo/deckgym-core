@@ -4,11 +4,21 @@ use crate::models::{EnergyType, StatusCondition};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AbilityMechanic {
-    HealAllYourPokemon { amount: u32 },
-    DamageOneOpponentPokemon { amount: u32 },
-    SwitchActiveTypedWithBench { energy_type: EnergyType },
-    ReduceDamageFromAttacks { amount: u32 },
-    StartTurnRandomPokemonToHand { energy_type: EnergyType },
+    HealAllYourPokemon {
+        amount: u32,
+    },
+    DamageOneOpponentPokemon {
+        amount: u32,
+    },
+    SwitchActiveTypedWithBench {
+        energy_type: EnergyType,
+    },
+    ReduceDamageFromAttacks {
+        amount: u32,
+    },
+    StartTurnRandomPokemonToHand {
+        energy_type: EnergyType,
+    },
     PreventFirstAttack,
     ElectromagneticWall,
     // New variants for vectorization
@@ -60,9 +70,15 @@ pub enum AbilityMechanic {
     },
     NoRetreatCost,
     Safeguard,
-    IncreasedPoisonDamage { amount: u32 },
-    DrawAtEndOfTurn { amount: u32 },
-    ShutDownAbilities { target_stage: Option<u8> },
+    IncreasedPoisonDamage {
+        amount: u32,
+    },
+    DrawAtEndOfTurn {
+        amount: u32,
+    },
+    ShutDownAbilities {
+        target_stage: Option<u8>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

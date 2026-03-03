@@ -163,7 +163,10 @@ pub(crate) fn on_play_to_bench(actor: usize, state: &mut State, card: &Card, in_
                         if let Some(pokemon) = state.in_play_pokemon[actor][in_play_idx].as_mut() {
                             pokemon.total_hp += 20;
                             pokemon.remaining_hp += 20;
-                            debug!("Starting Plains: Added +20 HP to {} entering play", pokemon_card.name);
+                            debug!(
+                                "Starting Plains: Added +20 HP to {} entering play",
+                                pokemon_card.name
+                            );
                         }
                     }
                 }
@@ -188,7 +191,6 @@ pub(crate) fn on_play_to_bench(actor: usize, state: &mut State, card: &Card, in_
         }
     }
 }
-
 
 pub(crate) fn on_end_turn(player_ending_turn: usize, state: &mut State) {
     // Check if active Pokémon has an end-of-turn ability
@@ -247,8 +249,8 @@ pub(crate) fn on_end_turn(player_ending_turn: usize, state: &mut State) {
                 state,
                 (opponent, 0), // Opponent's active Pokemon as the source
                 &[(total_delayed_damage, player_ending_turn, 0)], // Target is current player's active
-                false,         // Not from an active attack (it's a delayed effect)
-                None,          // No attack name
+                false, // Not from an active attack (it's a delayed effect)
+                None,  // No attack name
             );
         }
     }
@@ -762,7 +764,6 @@ fn get_stadium_damage_modifier(state: &State, attacking_pokemon: &PlayedCard) ->
     0
 }
 
-
 // Get the attack cost, considering opponent's abilities that modify attack costs (like Goomy's Sticky Membrane)
 pub(crate) fn get_attack_cost(
     base_cost: &[EnergyType],
@@ -786,19 +787,22 @@ pub(crate) fn get_attack_cost(
     // Check for ReducedAttackCostForSpecificPokemon turn effect (e.g., Barry card)
     if let Some(active_pokemon) = &state.in_play_pokemon[attacking_player][0] {
         let pokemon_name = active_pokemon.get_name();
-        
+
         for effect in state.get_current_turn_effects() {
             if let TurnEffect::ReducedAttackCostForSpecificPokemon {
                 amount,
                 pokemon_names,
             } = effect
             {
-                if pokemon_names.iter().any(|name| name.as_str() == pokemon_name) {
+                if pokemon_names
+                    .iter()
+                    .any(|name| name.as_str() == pokemon_name)
+                {
                     // Remove up to 'amount' colorless energies from the cost
                     // First remove explicit Colorless energies, then any other energy type
                     let mut removed = 0;
                     let reduction = amount as usize;
-                    
+
                     // First pass: remove Colorless energies
                     modified_cost.retain(|energy| {
                         if removed < reduction && *energy == EnergyType::Colorless {
@@ -808,13 +812,13 @@ pub(crate) fn get_attack_cost(
                             true
                         }
                     });
-                    
+
                     // Second pass: if we still need to remove more, remove any energy type
                     if removed < reduction {
                         let temp_cost = modified_cost.clone();
                         modified_cost.clear();
                         let mut skip_count = reduction - removed;
-                        
+
                         for energy in temp_cost {
                             if skip_count > 0 {
                                 skip_count -= 1;
@@ -823,7 +827,7 @@ pub(crate) fn get_attack_cost(
                             }
                         }
                     }
-                    
+
                     break; // Only apply the first matching effect
                 }
             }
@@ -1244,7 +1248,10 @@ mod tests {
         // Base damage 30 should be reduced by 10
         let damage = modify_damage(&state, (1, 0), (30, 0, 0), true, None);
 
-        assert_eq!(damage, 20, "Damage should be reduced from 30 to 20 by Blue card effect");
+        assert_eq!(
+            damage, 20,
+            "Damage should be reduced from 30 to 20 by Blue card effect"
+        );
     }
 
     #[test]

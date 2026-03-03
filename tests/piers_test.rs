@@ -4,7 +4,6 @@ use deckgym::{
     card_ids::CardId,
     database::get_card_by_enum,
     models::{Card, EnergyType, PlayedCard, TrainerCard},
-
 };
 
 mod common;
@@ -29,7 +28,7 @@ fn test_piers_discards_two_energies() {
 
     // Set up player with Obstagoon
     state.in_play_pokemon[current_player][0] = Some(make_obstagoon());
-    
+
     // Set up opponent with 2 energies
     let mut bulbasaur = PlayedCard::from_id(CardId::A1001Bulbasaur);
     bulbasaur.attached_energy = vec![EnergyType::Grass, EnergyType::Grass];
@@ -49,7 +48,11 @@ fn test_piers_discards_two_energies() {
 
     let state = game.get_state_clone();
     let opponent_active = state.get_active(opponent);
-    assert_eq!(opponent_active.attached_energy.len(), 0, "Piers should discard 2 energies");
+    assert_eq!(
+        opponent_active.attached_energy.len(),
+        0,
+        "Piers should discard 2 energies"
+    );
 }
 
 #[test]
@@ -61,7 +64,7 @@ fn test_piers_discards_one_energy_if_only_one_available() {
 
     // Set up player with Obstagoon
     state.in_play_pokemon[current_player][0] = Some(make_obstagoon());
-    
+
     // Set up opponent with 1 energy
     let mut bulbasaur = PlayedCard::from_id(CardId::A1001Bulbasaur);
     bulbasaur.attached_energy = vec![EnergyType::Grass];
@@ -81,7 +84,11 @@ fn test_piers_discards_one_energy_if_only_one_available() {
 
     let state = game.get_state_clone();
     let opponent_active = state.get_active(opponent);
-    assert_eq!(opponent_active.attached_energy.len(), 0, "Piers should discard the only available energy");
+    assert_eq!(
+        opponent_active.attached_energy.len(),
+        0,
+        "Piers should discard the only available energy"
+    );
 }
 
 #[test]
@@ -93,14 +100,14 @@ fn test_piers_is_not_playable_if_opponent_has_no_energy() {
 
     // Set up player with Obstagoon
     state.in_play_pokemon[current_player][0] = Some(make_obstagoon());
-    
+
     // Set up opponent with 0 energy
     state.in_play_pokemon[opponent][0] = Some(PlayedCard::from_id(CardId::A1001Bulbasaur));
 
     let trainer_card = make_piers_trainer_card();
     state.hands[current_player].push(Card::Trainer(trainer_card.clone()));
     state.hands_visibility[current_player].push(true);
-    
+
     // Verify move generation doesn't include Piers
     let actions = deckgym::generate_possible_actions(&state);
     let has_piers = actions.1.iter().any(|a| match &a.action {
@@ -108,7 +115,10 @@ fn test_piers_is_not_playable_if_opponent_has_no_energy() {
         _ => false,
     });
 
-    assert!(!has_piers, "Piers should not be playable if opponent has no energy");
+    assert!(
+        !has_piers,
+        "Piers should not be playable if opponent has no energy"
+    );
 }
 
 #[test]
@@ -120,7 +130,7 @@ fn test_piers_is_not_playable_if_no_obstagoon() {
 
     // Set up player with something else
     state.in_play_pokemon[current_player][0] = Some(PlayedCard::from_id(CardId::A1001Bulbasaur));
-    
+
     // Set up opponent with 2 energies
     let mut bulbasaur = PlayedCard::from_id(CardId::A1001Bulbasaur);
     bulbasaur.attached_energy = vec![EnergyType::Grass, EnergyType::Grass];
@@ -137,5 +147,8 @@ fn test_piers_is_not_playable_if_no_obstagoon() {
         _ => false,
     });
 
-    assert!(!has_piers, "Piers should not be playable if no Galarian Obstagoon in play");
+    assert!(
+        !has_piers,
+        "Piers should not be playable if no Galarian Obstagoon in play"
+    );
 }

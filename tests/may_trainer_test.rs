@@ -71,15 +71,16 @@ fn test_may_generates_all_combinations() {
     // Verify each choice is a ShufflePokemonIntoDeck
     for choice in choices {
         match choice {
-            SimpleAction::ShufflePokemonIntoDeck { hand_pokemon, amount } => {
+            SimpleAction::ShufflePokemonIntoDeck {
+                hand_pokemon,
+                amount,
+            } => {
                 // Each shuffle choice should be for shuffling 1 pokemon at a time
                 // (with amount indicating how many cards to shuffle total)
-                assert!(
-                    *amount > 0,
-                    "Shuffle amount should be positive"
-                );
+                assert!(*amount > 0, "Shuffle amount should be positive");
                 // Verify it's a valid pokemon card from hand
-                let matching_cards: Vec<_> = state_copy.iter_hand_pokemon(0)
+                let matching_cards: Vec<_> = state_copy
+                    .iter_hand_pokemon(0)
                     .filter(|c| c.get_id() == hand_pokemon.get_id())
                     .collect();
                 assert!(

@@ -111,10 +111,8 @@ fn test_houndstone_last_respects_no_psychic_in_discard() {
 
     // Set up Houndstone with Psychic + Colorless energy
     state.in_play_pokemon[0][0] = Some(
-        PlayedCard::from_id(CardId::B2a053Houndstone).with_energy(vec![
-            EnergyType::Psychic,
-            EnergyType::Colorless,
-        ]),
+        PlayedCard::from_id(CardId::B2a053Houndstone)
+            .with_energy(vec![EnergyType::Psychic, EnergyType::Colorless]),
     );
 
     // Set up opponent with enough HP to survive
@@ -153,10 +151,8 @@ fn test_houndstone_last_respects_with_psychic_in_discard() {
 
     // Set up Houndstone with Psychic + Colorless energy
     state.in_play_pokemon[0][0] = Some(
-        PlayedCard::from_id(CardId::B2a053Houndstone).with_energy(vec![
-            EnergyType::Psychic,
-            EnergyType::Colorless,
-        ]),
+        PlayedCard::from_id(CardId::B2a053Houndstone)
+            .with_energy(vec![EnergyType::Psychic, EnergyType::Colorless]),
     );
 
     // Set up opponent with enough HP to survive multiple scenarios
@@ -202,10 +198,8 @@ fn test_houndstone_last_respects_non_psychic_not_counted() {
 
     // Set up Houndstone with Psychic + Colorless energy
     state.in_play_pokemon[0][0] = Some(
-        PlayedCard::from_id(CardId::B2a053Houndstone).with_energy(vec![
-            EnergyType::Psychic,
-            EnergyType::Colorless,
-        ]),
+        PlayedCard::from_id(CardId::B2a053Houndstone)
+            .with_energy(vec![EnergyType::Psychic, EnergyType::Colorless]),
     );
 
     // Set up opponent with enough HP to survive
@@ -214,9 +208,9 @@ fn test_houndstone_last_respects_non_psychic_not_counted() {
 
     // Put only non-Psychic Pokémon (Grass/Fire) and a Trainer in the discard pile
     state.discard_piles[0] = vec![
-        get_card_by_enum(CardId::A1001Bulbasaur), // Grass
+        get_card_by_enum(CardId::A1001Bulbasaur),  // Grass
         get_card_by_enum(CardId::A1033Charmander), // Fire
-        get_card_by_enum(CardId::A2b111PokeBall), // Trainer (Item)
+        get_card_by_enum(CardId::A2b111PokeBall),  // Trainer (Item)
     ];
 
     game.set_state(state);

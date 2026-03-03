@@ -1,6 +1,6 @@
 use crate::{
-    actions::{attacks::Mechanic, EFFECT_MECHANIC_MAP},
     actions::SimpleAction,
+    actions::{attacks::Mechanic, EFFECT_MECHANIC_MAP},
     effects::CardEffect,
     hooks::{contains_energy, get_attack_cost},
     State,

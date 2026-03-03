@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod tests {
-    use rand::SeedableRng;
     use deckgym::actions::{apply_action, Action, SimpleAction};
     use deckgym::card_ids::CardId;
     use deckgym::database::get_card_by_enum;
+    use deckgym::generate_possible_trainer_actions;
     use deckgym::to_playable_card;
     use deckgym::{Deck, State};
-    use deckgym::generate_possible_trainer_actions;
+    use rand::SeedableRng;
 
     #[test]
     fn test_lucky_ice_pop_healing_and_return() {
