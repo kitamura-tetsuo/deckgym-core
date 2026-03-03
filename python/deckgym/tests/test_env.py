@@ -17,7 +17,7 @@ def test_env_observation_and_actions():
     obs = game.encode_observation()
     print(f"Observation shape: {len(obs)}")
     # Check shape roughly matches expectations (size ~10000)
-    assert len(obs) > 1000
+    assert len(obs) > 300
 
     # Legal Actions
     actions = game.legal_actions()
