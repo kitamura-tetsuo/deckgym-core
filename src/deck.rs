@@ -153,7 +153,11 @@ impl Deck {
                 // Ensure visibility length matches cards length (recovery from bad state)
                 self.visibility.resize(self.cards.len(), false);
             }
-            let mut combined: Vec<(Card, bool)> = self.cards.drain(..).zip(self.visibility.drain(..)).collect();
+            let mut combined: Vec<(Card, bool)> = self
+                .cards
+                .drain(..)
+                .zip(self.visibility.drain(..))
+                .collect();
             combined.shuffle(rng);
             for (c, v) in combined {
                 self.cards.push(c);

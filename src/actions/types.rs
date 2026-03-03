@@ -213,7 +213,10 @@ impl fmt::Display for SimpleAction {
             SimpleAction::CommunicatePokemon { hand_pokemon } => {
                 write!(f, "CommunicatePokemon({hand_pokemon})")
             }
-            SimpleAction::ShufflePokemonIntoDeck { hand_pokemon, amount } => {
+            SimpleAction::ShufflePokemonIntoDeck {
+                hand_pokemon,
+                amount,
+            } => {
                 write!(f, "ShufflePokemonIntoDeck({hand_pokemon}, {amount})")
             }
             SimpleAction::ShuffleOpponentSupporter { supporter_card } => {

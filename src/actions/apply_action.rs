@@ -110,21 +110,23 @@ pub fn forecast_action(state: &State, action: &Action) -> (Probabilities, Mutati
                     // We can reuse `rng`.
                     let dist = WeightedIndex::new(&et_probs).unwrap();
                     let chosen_index = dist.sample(rng);
-                    
+
                     // Construct a temporary action for the EndTurn logic
                     let end_turn_action = Action {
-                         actor: action.actor,
-                         action: SimpleAction::EndTurn,
-                         is_stack: false, 
+                        actor: action.actor,
+                        action: SimpleAction::EndTurn,
+                        is_stack: false,
                     };
-                    
+
                     et_mutations.remove(chosen_index)(rng, state, &end_turn_action);
                 } else {
                     // If there are forced actions (e.g. SelectActive due to KO),
                     // we cannot auto-end turn yet. We must queue EndTurn to happen
                     // after the forced actions are resolved.
                     // We insert at 0 (bottom of stack) so it happens last.
-                    state.move_generation_stack.insert(0, (action.actor, vec![SimpleAction::EndTurn]));
+                    state
+                        .move_generation_stack
+                        .insert(0, (action.actor, vec![SimpleAction::EndTurn]));
                 }
             }));
         } else {
@@ -504,7 +506,11 @@ fn forecast_pokemon_communication(
             // 1. Transfer hand Pokemon to deck
             state.transfer_card_from_hand_to_deck(action.actor, &hand_pokemon_clone);
             // 2. Transfer deck Pokemon to hand
-            state.transfer_card_from_deck_to_hand(action.actor, &deck_pokemon_card, "Pokemon Communication");
+            state.transfer_card_from_deck_to_hand(
+                action.actor,
+                &deck_pokemon_card,
+                "Pokemon Communication",
+            );
             // 5. Shuffle deck
             state.decks[action.actor].shuffle(false, rng);
 
@@ -529,27 +535,33 @@ fn forecast_shuffle_pokemon_into_deck(
         vec![1.0],
         vec![Box::new(move |_rng, state, _action| {
             state.transfer_card_from_hand_to_deck(acting_player, &pokemon);
-            
+
             if amount_left > 1 {
                 // We need to shuffle more
-                debug!("May: Shuffled {:?} from hand into deck, choosing next...", pokemon);
+                debug!(
+                    "May: Shuffled {:?} from hand into deck, choosing next...",
+                    pokemon
+                );
                 // We don't shuffle the deck yet.
                 // Generate choices for the next one
                 let remaining = amount_left - 1;
-                let hand_pokemon: Vec<Card> = state.iter_hand_pokemon(acting_player).cloned().collect();
+                let hand_pokemon: Vec<Card> =
+                    state.iter_hand_pokemon(acting_player).cloned().collect();
                 if !hand_pokemon.is_empty() {
-                     let shuffle_choices: Vec<SimpleAction> = hand_pokemon
+                    let shuffle_choices: Vec<SimpleAction> = hand_pokemon
                         .into_iter()
                         .map(|card| SimpleAction::ShufflePokemonIntoDeck {
                             hand_pokemon: card,
                             amount: remaining,
                         })
                         .collect();
-                    state.move_generation_stack.push((acting_player, shuffle_choices));
+                    state
+                        .move_generation_stack
+                        .push((acting_player, shuffle_choices));
                 } else {
-                     // No more pokemon to shuffle, so we are done?
-                     // If we were supposed to shuffle 2 but only had 1, we stop.
-                     state.decks[acting_player].shuffle(false, _rng);
+                    // No more pokemon to shuffle, so we are done?
+                    // If we were supposed to shuffle 2 but only had 1, we stop.
+                    state.decks[acting_player].shuffle(false, _rng);
                 }
             } else {
                 // Done
@@ -597,28 +609,34 @@ fn forecast_discard_opponent_supporter(
     )
 }
 
-fn forecast_discard_own_card(acting_player: usize, card: &Card, amount_left: usize) -> (Probabilities, Mutations) {
+fn forecast_discard_own_card(
+    acting_player: usize,
+    card: &Card,
+    amount_left: usize,
+) -> (Probabilities, Mutations) {
     let card_clone = card.clone();
     (
         vec![1.0],
         vec![Box::new(move |_rng, state, _action| {
             state.discard_card_from_hand(acting_player, &card_clone);
-            debug!(
-                "Discarded {:?} from hand",
-                card_clone
-            );
+            debug!("Discarded {:?} from hand", card_clone);
             if amount_left > 1 {
                 let remaining = amount_left - 1;
                 let hand_cards: Vec<Card> = state.hands[acting_player].clone();
                 if !hand_cards.is_empty() {
                     // Collect unique cards to avoid duplicate actions if same card is present multiple times
-                    // Wait, our choices representation natively supports duplicate items if hand_cards contains duplicates! 
+                    // Wait, our choices representation natively supports duplicate items if hand_cards contains duplicates!
                     // Let's just create one choice per card in hand
                     let possible_discards: Vec<SimpleAction> = hand_cards
                         .into_iter()
-                        .map(|c| SimpleAction::DiscardOwnCard { card: c, amount_left: remaining })
+                        .map(|c| SimpleAction::DiscardOwnCard {
+                            card: c,
+                            amount_left: remaining,
+                        })
                         .collect();
-                    state.move_generation_stack.push((acting_player, possible_discards));
+                    state
+                        .move_generation_stack
+                        .push((acting_player, possible_discards));
                 }
             }
         })],

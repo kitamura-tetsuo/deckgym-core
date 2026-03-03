@@ -3,7 +3,6 @@ use std::cmp::min;
 use log::debug;
 use rand::rngs::StdRng;
 
-
 use crate::{
     actions::{
         apply_evolve,
@@ -125,9 +124,9 @@ pub fn forecast_trainer_action(
         CardId::A4158Silver | CardId::A4198Silver | CardId::A4b336Silver | CardId::A4b337Silver => {
             doutcome(silver_effect)
         }
-        CardId::A3b066EeveeBag
-        | CardId::A4b308EeveeBag
-        | CardId::A4b309EeveeBag => doutcome(eevee_bag_effect),
+        CardId::A3b066EeveeBag | CardId::A4b308EeveeBag | CardId::A4b309EeveeBag => {
+            doutcome(eevee_bag_effect)
+        }
 
         CardId::B1217FlamePatch | CardId::B1331FlamePatch => doutcome(flame_patch_effect),
         CardId::B1225Copycat | CardId::B1270Copycat => doutcome(copycat_effect),
@@ -136,6 +135,9 @@ pub fn forecast_trainer_action(
         }
         CardId::A2b072TeamRocketGrunt | CardId::A2b091TeamRocketGrunt => {
             team_rocket_grunt_outcomes()
+        }
+        CardId::B2a086ElectricGenerator | CardId::B2a131ElectricGenerator => {
+            electric_generator_outcomes()
         }
         CardId::B1223May | CardId::B1268May => may_effect(acting_player, state),
         CardId::B1224Fantina | CardId::B1269Fantina => doutcome(fantina_effect),
@@ -175,7 +177,7 @@ fn stadium_effect(_: &mut StdRng, state: &mut State, action: &Action) {
     // When a new Stadium is played, the old one is discarded
     if let SimpleAction::Play { trainer_card } = &action.action {
         use crate::card_ids::CardId;
-        
+
         // Remove HP bonus from old Stadium if it was Starting Plains
         if let Some(old_stadium) = state.get_stadium() {
             if let Some(old_stadium_id) = CardId::from_card_id(&old_stadium.get_id()) {
@@ -186,7 +188,8 @@ fn stadium_effect(_: &mut StdRng, state: &mut State, action: &Action) {
                             if let Card::Pokemon(pokemon_card) = &pokemon.card {
                                 if pokemon_card.stage == 0 {
                                     pokemon.total_hp = pokemon.total_hp.saturating_sub(20);
-                                    pokemon.remaining_hp = pokemon.remaining_hp.min(pokemon.total_hp);
+                                    pokemon.remaining_hp =
+                                        pokemon.remaining_hp.min(pokemon.total_hp);
                                 }
                             }
                         }
@@ -194,12 +197,12 @@ fn stadium_effect(_: &mut StdRng, state: &mut State, action: &Action) {
                 }
             }
         }
-        
+
         let card = Card::Trainer(trainer_card.clone());
         let card_id = CardId::from_card_id(&trainer_card.id);
         state.set_stadium(card, action.actor);
         debug!("Stadium: {} is now in play", trainer_card.name);
-        
+
         // Apply HP bonus for Starting Plains
         if let Some(stadium_id) = card_id {
             if stadium_id == CardId::B2154StartingPlains {
@@ -219,7 +222,6 @@ fn stadium_effect(_: &mut StdRng, state: &mut State, action: &Action) {
         }
     }
 }
-
 
 fn erika_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
     inner_healing_effect(rng, state, action, 50, Some(EnergyType::Grass));
@@ -274,21 +276,19 @@ fn potion_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
     inner_healing_effect(rng, state, action, 20, None);
 }
 
-
-
 fn team_rocket_grunt_outcomes() -> (Probabilities, Mutations) {
     // Flip a coin until you get tails. For each heads, discard a random Energy from opponent's Active Pokémon.
     // 50% no energy (tails on first flip), 25% 1 energy, 12.5% 2 energy, etc.
     let probabilities = vec![0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625];
     let mut outcomes: Mutations = vec![];
-    
+
     for num_heads in 0..6 {
         outcomes.push(Box::new(move |_, state: &mut State, action: &Action| {
             let opponent = (action.actor + 1) % 2;
             if let Some(active) = state.in_play_pokemon[opponent][0].as_mut() {
                 let mut to_discard = Vec::new();
                 let mut current_energies = active.attached_energy.clone();
-                
+
                 for _ in 0..num_heads {
                     if let Some(energy) = current_energies.pop() {
                         to_discard.push(energy);
@@ -296,14 +296,14 @@ fn team_rocket_grunt_outcomes() -> (Probabilities, Mutations) {
                         break;
                     }
                 }
-                
+
                 if !to_discard.is_empty() {
                     state.discard_from_active(opponent, &to_discard);
                 }
             }
         }));
     }
-    
+
     (probabilities, outcomes)
 }
 
@@ -439,7 +439,6 @@ fn mars_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
     }
 }
 
-
 fn giovanni_effect(_: &mut StdRng, state: &mut State, _: &Action) {
     // During this turn, attacks used by your Pokémon do +10 damage to your opponent's Active Pokémon.
     state.add_turn_effect(TurnEffect::IncreasedDamage { amount: 10 }, 0);
@@ -556,7 +555,10 @@ fn juggler_effect(_: &mut StdRng, state: &mut State, action: &Action) {
     }
 
     if energy_types.len() < 3 {
-        debug!("Juggler: Fewer than 3 energy types in play ({}), effect fails", energy_types.len());
+        debug!(
+            "Juggler: Fewer than 3 energy types in play ({}), effect fails",
+            energy_types.len()
+        );
         return;
     }
 
@@ -698,15 +700,18 @@ fn guzma_effect(_: &mut StdRng, state: &mut State, action: &Action) {
     // Discard all Pokémon Tool cards attached to each of your opponent's Pokémon.
     let opponent = (action.actor + 1) % 2;
     debug!("Guzma: Discarding all tool cards from opponent's Pokémon");
-    
+
     for pokemon in state.in_play_pokemon[opponent].iter_mut().flatten() {
         if let Some(tool) = pokemon.attached_tool.take() {
-            debug!("Guzma: Discarding {} from {}", tool.get_name(), pokemon.get_name());
+            debug!(
+                "Guzma: Discarding {} from {}",
+                tool.get_name(),
+                pokemon.get_name()
+            );
             state.discard_piles[opponent].push(tool);
         }
     }
 }
-
 
 fn koga_effect(_: &mut StdRng, state: &mut State, action: &Action) {
     // Put your Muk or Weezing in the Active Spot into your hand.
@@ -763,7 +768,7 @@ fn mythical_slab_effect(_: &mut StdRng, state: &mut State, action: &Action) {
             // But access was: `state.decks[...].cards.first()`. This peeked without removing.
             // Then `remove(0)`.
             // Now I drew it. So it is removed.
-            
+
             // Re-implementing original logic (which checked is_basic()) but using draw result.
             if card.is_basic() {
                 state.hands[action.actor].push(card.clone());
@@ -773,8 +778,8 @@ fn mythical_slab_effect(_: &mut StdRng, state: &mut State, action: &Action) {
                 state.decks[action.actor].visibility.push(false); // Bottom of deck, usually hidden.
             }
         } else {
-             state.decks[action.actor].cards.push(card);
-             state.decks[action.actor].visibility.push(false);
+            state.decks[action.actor].cards.push(card);
+            state.decks[action.actor].visibility.push(false);
         }
     }
 }
@@ -1016,7 +1021,7 @@ fn iono_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
     }
 }
 
-    pub fn may_effect(acting_player: usize, state: &State) -> (Probabilities, Mutations) {
+pub fn may_effect(acting_player: usize, state: &State) -> (Probabilities, Mutations) {
     // Put 2 random Pokémon from your deck into your hand.
     // For each Pokémon you put into your hand in this way, choose a Pokémon to shuffle from your hand into your deck.
     let deck_pokemon: Vec<Card> = state.iter_deck_pokemon(acting_player).cloned().collect();
@@ -1035,12 +1040,16 @@ fn iono_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
     let num_outcomes = draw_combinations.len();
     let probabilities = vec![1.0 / (num_outcomes as f64); num_outcomes];
     let mut outcomes: Mutations = vec![];
-    
+
     for combo in draw_combinations {
         outcomes.push(Box::new(move |_rng, state, action| {
             // Transfer each Pokemon from the combination to hand
             for pokemon in &combo {
-                state.transfer_card_from_deck_to_hand(action.actor, pokemon, "Pokemon Communication");
+                state.transfer_card_from_deck_to_hand(
+                    action.actor,
+                    pokemon,
+                    "Pokemon Communication",
+                );
             }
 
             // Queue the first shuffle decision (we need to shuffle num_to_draw times)
@@ -1053,7 +1062,7 @@ fn iono_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
 
 fn generate_shuffle_choices(player: usize, state: &mut State, amount: usize) {
     let hand_pokemon: Vec<Card> = state.iter_hand_pokemon(player).cloned().collect();
-    
+
     // If no pokemon in hand (shouldn't happen given we just drew), nothing to shuffle
     if hand_pokemon.is_empty() {
         return;
@@ -1066,21 +1075,25 @@ fn generate_shuffle_choices(player: usize, state: &mut State, amount: usize) {
             amount,
         })
         .collect();
-    
-    state
-        .move_generation_stack
-        .push((player, shuffle_choices));
+
+    state.move_generation_stack.push((player, shuffle_choices));
 }
 
 fn lisia_effect(acting_player: usize, state: &State) -> (Probabilities, Mutations) {
     // Put 2 random Basic Pokémon with 50 HP or less from your deck into your hand.
-    card_search_outcomes_with_filter_multiple(acting_player, state, 2, |card| {
-        if let Card::Pokemon(pokemon_card) = card {
-            pokemon_card.stage == 0 && pokemon_card.hp <= 50
-        } else {
-            false
-        }
-    }, "Lisia".to_string())
+    card_search_outcomes_with_filter_multiple(
+        acting_player,
+        state,
+        2,
+        |card| {
+            if let Card::Pokemon(pokemon_card) = card {
+                pokemon_card.stage == 0 && pokemon_card.hp <= 50
+            } else {
+                false
+            }
+        },
+        "Lisia".to_string(),
+    )
 }
 
 fn lucky_ice_pop_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
@@ -1097,23 +1110,23 @@ fn lucky_ice_pop_effect(rng: &mut StdRng, state: &mut State, action: &Action) {
 
     if healed_any {
         use rand::Rng; // Ensure Rng trait is in scope or use rng.gen_bool directly if available
-        // StdRng usually implements Rng
+                       // StdRng usually implements Rng
         if rng.gen_bool(0.5) {
             debug!("Lucky Ice Pop: Heads! Returning to hand.");
             // Retrieve from discard pile
             let discard_pile = &mut state.discard_piles[player];
             // It should be the last card added
             if let Some(card) = discard_pile.pop() {
-                     // We can double check it's the right card to be safe, but it should be.
-                     // A strict check logic might be hard if we don't have the card instance easily comparable
-                     // but we can check ID.
-                     if card.get_id() == "B2 145" {
-                         state.hands[player].push(card);
-                         state.hands_visibility[player].push(true);
-                     } else {
-                         // Fallback, put it back
-                         discard_pile.push(card);
-                     }
+                // We can double check it's the right card to be safe, but it should be.
+                // A strict check logic might be hard if we don't have the card instance easily comparable
+                // but we can check ID.
+                if card.get_id() == "B2 145" {
+                    state.hands[player].push(card);
+                    state.hands_visibility[player].push(true);
+                } else {
+                    // Fallback, put it back
+                    discard_pile.push(card);
+                }
             }
         }
     }
@@ -1167,16 +1180,28 @@ fn clemonts_backpack_effect(_: &mut StdRng, state: &mut State, _: &Action) {
 
 fn clemont_effect(acting_player: usize, state: &State) -> (Probabilities, Mutations) {
     // Put 2 random cards from among Magneton, Heliolisk, and Clemont's Backpack from your deck into your hand.
-    card_search_outcomes_with_filter_multiple(acting_player, state, 2, |card| {
-        let name = card.get_name();
-        name == "Magneton" || name == "Heliolisk" || name == "Clemont's Backpack"
-    }, "Clemont".to_string())
+    card_search_outcomes_with_filter_multiple(
+        acting_player,
+        state,
+        2,
+        |card| {
+            let name = card.get_name();
+            name == "Magneton" || name == "Heliolisk" || name == "Clemont's Backpack"
+        },
+        "Clemont".to_string(),
+    )
 }
 
 fn serena_effect(acting_player: usize, state: &State) -> (Probabilities, Mutations) {
     // Put a random Mega Evolution Pokémon ex from your deck into your hand.
     // All Mega evolutions are ex by definition
-    card_search_outcomes_with_filter_multiple(acting_player, state, 1, |card| card.is_mega(), "Serena".to_string())
+    card_search_outcomes_with_filter_multiple(
+        acting_player,
+        state,
+        1,
+        |card| card.is_mega(),
+        "Serena".to_string(),
+    )
 }
 
 fn quick_grow_extract_effect(acting_player: usize, state: &State) -> (Probabilities, Mutations) {
@@ -1209,6 +1234,33 @@ fn quick_grow_extract_effect(acting_player: usize, state: &State) -> (Probabilit
     (probabilities, outcomes)
 }
 
+fn electric_generator_outcomes() -> (Probabilities, Mutations) {
+    let mut outcomes: Mutations = vec![];
+    let probabilities = vec![0.5, 0.5];
 
+    // Tails (0): Nothing happens
+    outcomes.push(Box::new(|_, _, _| {
+        // Tails does nothing
+    }));
 
+    // Heads (1): Choose a benched Lightning Pokemon and attach a Lightning Energy from Energy Zone
+    outcomes.push(Box::new(|_, state, action| {
+        let player = action.actor;
+        let mut possible_moves = vec![];
 
+        for (i, p) in state.enumerate_bench_pokemon(player) {
+            if p.get_energy_type() == Some(EnergyType::Lightning) {
+                possible_moves.push(SimpleAction::Attach {
+                    attachments: vec![(1, EnergyType::Lightning, i)],
+                    is_turn_energy: false,
+                });
+            }
+        }
+
+        if !possible_moves.is_empty() {
+            state.move_generation_stack.push((player, possible_moves));
+        }
+    }));
+
+    (probabilities, outcomes)
+}

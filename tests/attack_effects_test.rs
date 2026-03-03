@@ -30,10 +30,11 @@ fn test_weedle_multiply_attack() {
     state.in_play_pokemon[0][0] = Some(active_weedle);
 
     // Clear bench to ensure clean state for test
-    for i in 1..4 { // Standard bench size is 3 + active at 0
+    for i in 1..4 {
+        // Standard bench size is 3 + active at 0
         // Safe access or just use direct indexing if known size
         if i < state.in_play_pokemon[0].len() {
-             state.in_play_pokemon[0][i] = None;
+            state.in_play_pokemon[0][i] = None;
         }
     }
 
@@ -202,10 +203,7 @@ fn test_discard_hand_card_attack() {
     state.in_play_pokemon[0][0] = Some(active_cofagrigus);
 
     // Give opponent an active
-    state.in_play_pokemon[1][0] = Some(
-        PlayedCard::from_id(CardId::A1001Bulbasaur)
-            .with_hp(200),
-    );
+    state.in_play_pokemon[1][0] = Some(PlayedCard::from_id(CardId::A1001Bulbasaur).with_hp(200));
 
     use deckgym::generate_possible_actions;
 
@@ -217,7 +215,9 @@ fn test_discard_hand_card_attack() {
     assert_eq!(actor, 0);
     // There shouldn't be an Attack(0) action available
     assert!(
-        !valid_actions.iter().any(|a| matches!(a.action, SimpleAction::Attack(0))),
+        !valid_actions
+            .iter()
+            .any(|a| matches!(a.action, SimpleAction::Attack(0))),
         "Attack should not be selectable with 1 card in hand"
     );
 
@@ -228,30 +228,32 @@ fn test_discard_hand_card_attack() {
         get_card_by_enum(CardId::A1053Squirtle),
     ];
     game.set_state(state);
-    
+
     let (_actor, valid_actions_case2) = generate_possible_actions(game.state());
     assert!(
-        valid_actions_case2.iter().any(|a| matches!(a.action, SimpleAction::Attack(0))),
+        valid_actions_case2
+            .iter()
+            .any(|a| matches!(a.action, SimpleAction::Attack(0))),
         "Attack should be selectable with 2+ cards in hand"
     );
-    
+
     let attack_action = Action {
         actor: 0,
         action: SimpleAction::Attack(0),
         is_stack: false,
     };
     game.apply_action(&attack_action);
-    
+
     let mut state_after_attack = game.get_state_clone();
     // Opponent takes 120 damage
     assert_eq!(state_after_attack.get_active(1).remaining_hp, 80);
-    
+
     // Check if move generation stack asks for first discard
     assert!(!state_after_attack.move_generation_stack.is_empty());
     let (actor, choices) = state_after_attack.move_generation_stack.last().unwrap();
     assert_eq!(*actor, 0);
     assert!(matches!(&choices[0], SimpleAction::DiscardOwnCard { .. }));
-    
+
     // Discard first card
     let discard1 = Action {
         actor: 0,
@@ -259,16 +261,16 @@ fn test_discard_hand_card_attack() {
         is_stack: true, // It's popped from stack, wait, is_stack just skips checks in API, in tests it doesn't matter for `apply_action`
     };
     game.apply_action(&discard1);
-    
+
     state_after_attack = game.get_state_clone();
     assert_eq!(state_after_attack.hands[0].len(), 2);
-    
+
     // Should ask for second discard
     assert!(!state_after_attack.move_generation_stack.is_empty());
     let (actor, choices) = state_after_attack.move_generation_stack.last().unwrap();
     assert_eq!(*actor, 0);
     assert!(matches!(&choices[0], SimpleAction::DiscardOwnCard { .. }));
-    
+
     // Discard second card
     let discard2 = Action {
         actor: 0,
@@ -276,10 +278,10 @@ fn test_discard_hand_card_attack() {
         is_stack: true,
     };
     game.apply_action(&discard2);
-    
+
     state_after_attack = game.get_state_clone();
     assert_eq!(state_after_attack.hands[0].len(), 1);
-    
+
     // Both discards done
     if !state_after_attack.move_generation_stack.is_empty() {
         // Might be just end turn action

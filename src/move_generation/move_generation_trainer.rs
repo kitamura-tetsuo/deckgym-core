@@ -113,9 +113,9 @@ pub fn trainer_move_generation_implementation(
         CardId::A4157Lyra | CardId::A4197Lyra | CardId::A4b332Lyra | CardId::A4b333Lyra => {
             can_play_lyra(state, trainer_card)
         }
-        CardId::A3151Guzma
-        | CardId::A3193Guzma
-        | CardId::A3208Guzma => can_play_guzma(state, trainer_card),
+        CardId::A3151Guzma | CardId::A3193Guzma | CardId::A3208Guzma => {
+            can_play_guzma(state, trainer_card)
+        }
         // Simple cases: always can play
         CardId::A4158Silver
         | CardId::A4198Silver
@@ -159,6 +159,9 @@ pub fn trainer_move_generation_implementation(
         }
         CardId::A2b072TeamRocketGrunt | CardId::A2b091TeamRocketGrunt => {
             can_play_team_rocket_grunt(state, trainer_card)
+        }
+        CardId::B2a086ElectricGenerator | CardId::B2a131ElectricGenerator => {
+            can_play_electric_generator(state, trainer_card)
         }
         CardId::B1223May | CardId::B1268May => can_play_trainer(state, trainer_card),
         CardId::B1224Fantina | CardId::B1269Fantina => can_play_trainer(state, trainer_card),
@@ -596,7 +599,9 @@ fn can_play_juggler(state: &State, trainer_card: &TrainerCard) -> Option<Vec<Sim
     }
 
     // Must have 3+ types AND at least one energy on bench AND an active pokemon
-    let has_energy_on_bench = state.enumerate_bench_pokemon(actor).any(|(_, p)| !p.attached_energy.is_empty());
+    let has_energy_on_bench = state
+        .enumerate_bench_pokemon(actor)
+        .any(|(_, p)| !p.attached_energy.is_empty());
     let has_active = state.in_play_pokemon[actor][0].is_some();
 
     if energy_types.len() >= 3 && has_energy_on_bench && has_active {
@@ -706,3 +711,18 @@ fn can_play_guzma(state: &State, trainer_card: &TrainerCard) -> Option<Vec<Simpl
     }
 }
 
+fn can_play_electric_generator(
+    state: &State,
+    trainer_card: &TrainerCard,
+) -> Option<Vec<SimpleAction>> {
+    let player = state.current_player;
+    let has_benched_lightning = state
+        .enumerate_bench_pokemon(player)
+        .any(|(_, p)| p.get_energy_type() == Some(EnergyType::Lightning));
+
+    if has_benched_lightning {
+        can_play_trainer(state, trainer_card)
+    } else {
+        cannot_play_trainer()
+    }
+}

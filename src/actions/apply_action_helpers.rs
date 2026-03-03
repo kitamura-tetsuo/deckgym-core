@@ -6,7 +6,8 @@ use rand::rngs::StdRng;
 use crate::{
     actions::{
         abilities::AbilityMechanic, ability_mechanic_from_effect,
-        effect_ability_mechanic_map::get_simulator_ability_mechanic, shared_mutations, SimpleAction,
+        effect_ability_mechanic_map::get_simulator_ability_mechanic, shared_mutations,
+        SimpleAction,
     },
     hooks::{
         get_counterattack_damage, modify_damage, on_end_turn, on_knockout, should_poison_attacker,
@@ -46,7 +47,8 @@ pub(crate) fn forecast_end_turn(state: &State) -> (Probabilities, Mutations) {
         let next_player = (state.current_player + 1) % 2;
         let mut predicted_state = state.clone();
         predicted_state.maybe_draw_card(next_player);
-        let (start_probs, start_mutations) = start_turn_ability_outcomes(&predicted_state, next_player);
+        let (start_probs, start_mutations) =
+            start_turn_ability_outcomes(&predicted_state, next_player);
 
         let mut outcomes: Mutations = Vec::with_capacity(start_mutations.len());
         for start_mutation in start_mutations {
@@ -376,7 +378,9 @@ pub(crate) fn handle_damage(
 
         // Apply damage
         {
-            let Some(target_pokemon) = state.in_play_pokemon[target_player][target_pokemon_idx].as_mut() else {
+            let Some(target_pokemon) =
+                state.in_play_pokemon[target_player][target_pokemon_idx].as_mut()
+            else {
                 continue;
             };
             target_pokemon.apply_damage(damage); // Applies without surpassing 0 HP
@@ -394,7 +398,9 @@ pub(crate) fn handle_damage(
             continue;
         }
 
-        let Some(target_pokemon) = state.in_play_pokemon[target_player][target_pokemon_idx].as_ref() else {
+        let Some(target_pokemon) =
+            state.in_play_pokemon[target_player][target_pokemon_idx].as_ref()
+        else {
             continue;
         };
         let counter_damage = {
@@ -408,7 +414,8 @@ pub(crate) fn handle_damage(
 
         // Apply counterattack damage and poison
         if counter_damage > 0 || should_poison {
-            let Some(attacking_pokemon) = state.in_play_pokemon[attacking_player][0].as_mut() else {
+            let Some(attacking_pokemon) = state.in_play_pokemon[attacking_player][0].as_mut()
+            else {
                 continue;
             };
 
@@ -523,8 +530,8 @@ fn noop_mutation() -> Mutation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::SeedableRng;
     use crate::{card_ids::CardId, database::get_card_by_enum, hooks::to_playable_card};
+    use rand::SeedableRng;
 
     #[test]
     fn test_poison_damage_no_nihilego() {
@@ -581,7 +588,15 @@ mod tests {
 
         // This should not panic anymore
         let mut rng = rand::rngs::StdRng::seed_from_u64(42);
-        apply_pokemon_checkup(&mut rng, &mut state, vec![], vec![], vec![(0, 0)], vec![(0, 0)], vec![false]);
+        apply_pokemon_checkup(
+            &mut rng,
+            &mut state,
+            vec![],
+            vec![],
+            vec![(0, 0)],
+            vec![(0, 0)],
+            vec![false],
+        );
 
         // Verify the Pokemon is gone
         assert!(state.in_play_pokemon[0][0].is_none());

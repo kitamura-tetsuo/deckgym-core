@@ -8,16 +8,19 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 
 use crate::{
+    actions::attacks::Mechanic,
+    actions::{
+        get_attack_mechanic, get_enhanced_ability_mechanic, get_simulator_ability_mechanic,
+        trainer_mechanic::TrainerMechanic, Action, SimpleAction, EFFECT_MECHANIC_MAP,
+    },
     card_ids::CardId,
-    deck::Deck, encoding, game::Game, generate_possible_actions,
+    deck::Deck,
+    encoding,
+    game::Game,
+    generate_possible_actions,
     models::{Ability, Attack, Card, EnergyType, PlayedCard},
     players::{create_players, fill_code_array, parse_player_code, PlayerCode, RandomPlayer},
     state::{GameOutcome, State},
-    actions::{
-        Action, SimpleAction, EFFECT_MECHANIC_MAP, trainer_mechanic::TrainerMechanic,
-        get_attack_mechanic, get_enhanced_ability_mechanic, get_simulator_ability_mechanic,
-    },
-    actions::attacks::Mechanic,
 };
 
 use numpy::PyArrayMethods;
@@ -246,13 +249,19 @@ impl PyCard {
         let attacks = self.card.get_attacks();
         for (i, atk) in attacks.iter().enumerate() {
             let mechanic = get_attack_mechanic(&self.card, i).or_else(|| {
-                atk.effect.as_deref().and_then(|text| EFFECT_MECHANIC_MAP.get(text)).cloned()
+                atk.effect
+                    .as_deref()
+                    .and_then(|text| EFFECT_MECHANIC_MAP.get(text))
+                    .cloned()
             });
 
             if let Some(mechanic) = mechanic {
                 let json_str = serde_json::to_string(&mechanic).unwrap_or_default();
                 let json_module = py.import_bound("json").unwrap();
-                let info = json_module.call_method1("loads", (json_str,)).unwrap().to_object(py);
+                let info = json_module
+                    .call_method1("loads", (json_str,))
+                    .unwrap()
+                    .to_object(py);
                 infos.push(Some(info));
             } else {
                 infos.push(None);
@@ -263,9 +272,8 @@ impl PyCard {
 
     #[getter]
     fn ability_mechanic_info(&self, py: Python) -> Option<PyObject> {
-        let mechanic = get_enhanced_ability_mechanic(&self.card).or_else(|| {
-            get_simulator_ability_mechanic(&self.card).cloned()
-        })?;
+        let mechanic = get_enhanced_ability_mechanic(&self.card)
+            .or_else(|| get_simulator_ability_mechanic(&self.card).cloned())?;
         let json_str = serde_json::to_string(&mechanic).ok()?;
         let json_module = py.import_bound("json").ok()?;
         json_module
@@ -1213,7 +1221,8 @@ pub fn get_player_types() -> HashMap<String, String> {
 /// Python module definition
 #[pyfunction]
 pub fn get_card(id: String) -> PyResult<PyCard> {
-    let card_id = CardId::from_card_id(&id).ok_or_else(|| PyValueError::new_err("Invalid Card ID"))?;
+    let card_id =
+        CardId::from_card_id(&id).ok_or_else(|| PyValueError::new_err("Invalid Card ID"))?;
     Ok(crate::database::get_card_by_enum(card_id).into())
 }
 
@@ -1269,13 +1278,11 @@ impl PyBatchedSimulator {
         damage_reward: f32,
     ) -> PyResult<Self> {
         let mut deck_cache = HashMap::new();
-        let deck_a = Deck::from_file(&deck_a_path).map_err(|e| {
-            PyIOError::new_err(format!("Failed to load deck A: {}", e))
-        })?;
-        let deck_b = Deck::from_file(&deck_b_path).map_err(|e| {
-            PyIOError::new_err(format!("Failed to load deck B: {}", e))
-        })?;
-        
+        let deck_a = Deck::from_file(&deck_a_path)
+            .map_err(|e| PyIOError::new_err(format!("Failed to load deck A: {}", e)))?;
+        let deck_b = Deck::from_file(&deck_b_path)
+            .map_err(|e| PyIOError::new_err(format!("Failed to load deck B: {}", e)))?;
+
         deck_cache.insert(deck_a_path, deck_a);
         deck_cache.insert(deck_b_path, deck_b);
 
@@ -1291,12 +1298,16 @@ impl PyBatchedSimulator {
 
     #[pyo3(signature = (seed=None, deck_ids_1=None, deck_ids_2=None))]
     pub fn reset<'py>(
-        &mut self, 
+        &mut self,
         py: Python<'py>,
-        seed: Option<u64>, 
-        deck_ids_1: Option<Vec<String>>, 
-        deck_ids_2: Option<Vec<String>>
-    ) -> PyResult<((Py<numpy::PyArray2<f32>>, Py<numpy::PyArray2<f32>>), Py<numpy::PyArray1<usize>>, Py<numpy::PyArray2<f32>>)> {
+        seed: Option<u64>,
+        deck_ids_1: Option<Vec<String>>,
+        deck_ids_2: Option<Vec<String>>,
+    ) -> PyResult<(
+        (Py<numpy::PyArray2<f32>>, Py<numpy::PyArray2<f32>>),
+        Py<numpy::PyArray1<usize>>,
+        Py<numpy::PyArray2<f32>>,
+    )> {
         self.games.clear();
         let mut rng = if let Some(s) = seed {
             rand::rngs::StdRng::seed_from_u64(s)
@@ -1308,7 +1319,9 @@ impl PyBatchedSimulator {
         let cached_paths: Vec<String> = self.deck_cache.keys().cloned().collect();
         if deck_ids_1.is_none() || deck_ids_2.is_none() {
             if cached_paths.len() < 2 {
-                 return Err(PyValueError::new_err("Not enough decks in cache to reset without explicit deck_ids"));
+                return Err(PyValueError::new_err(
+                    "Not enough decks in cache to reset without explicit deck_ids",
+                ));
             }
         }
 
@@ -1327,9 +1340,8 @@ impl PyBatchedSimulator {
             let deck_1 = if let Some(d) = self.deck_cache.get(deck_1_path) {
                 d.clone()
             } else {
-                let d = Deck::from_file(deck_1_path).map_err(|e| {
-                    PyIOError::new_err(format!("Failed to load deck: {}", e))
-                })?;
+                let d = Deck::from_file(deck_1_path)
+                    .map_err(|e| PyIOError::new_err(format!("Failed to load deck: {}", e)))?;
                 self.deck_cache.insert(deck_1_path.to_string(), d.clone());
                 d
             };
@@ -1337,9 +1349,8 @@ impl PyBatchedSimulator {
             let deck_2 = if let Some(d) = self.deck_cache.get(deck_2_path) {
                 d.clone()
             } else {
-                let d = Deck::from_file(deck_2_path).map_err(|e| {
-                    PyIOError::new_err(format!("Failed to load deck: {}", e))
-                })?;
+                let d = Deck::from_file(deck_2_path)
+                    .map_err(|e| PyIOError::new_err(format!("Failed to load deck: {}", e)))?;
                 self.deck_cache.insert(deck_2_path.to_string(), d.clone());
                 d
             };
@@ -1363,7 +1374,8 @@ impl PyBatchedSimulator {
         let py_obs_0 = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, obs_dim], false);
         let py_obs_1 = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, obs_dim], false);
         let py_cp = numpy::PyArray1::<usize>::zeros_bound(py, [self.batch_size], false);
-        let py_mask = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, action_space_size], false);
+        let py_mask =
+            numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, action_space_size], false);
 
         {
             let mut obs_0_view = py_obs_0.try_readwrite().unwrap();
@@ -1397,14 +1409,27 @@ impl PyBatchedSimulator {
             }
         }
 
-        Ok(((py_obs_0.unbind(), py_obs_1.unbind()), py_cp.unbind(), py_mask.unbind()))
+        Ok((
+            (py_obs_0.unbind(), py_obs_1.unbind()),
+            py_cp.unbind(),
+            py_mask.unbind(),
+        ))
     }
 
     // Returns (obs, rewards, dones, timed_out, valid_mask)
     // valid_mask indicates if the environment was active and stepped successfully
-    pub fn step(&mut self, actions: Vec<usize>) -> PyResult<(Vec<Vec<f32>>, Vec<Vec<f32>>, Vec<bool>, Vec<bool>, Vec<bool>)> {
+    pub fn step(
+        &mut self,
+        actions: Vec<usize>,
+    ) -> PyResult<(
+        Vec<Vec<f32>>,
+        Vec<Vec<f32>>,
+        Vec<bool>,
+        Vec<bool>,
+        Vec<bool>,
+    )> {
         if actions.len() != self.batch_size {
-             return Err(PyValueError::new_err(format!(
+            return Err(PyValueError::new_err(format!(
                 "Actions length {} does not match batch size {}",
                 actions.len(),
                 self.batch_size
@@ -1425,17 +1450,20 @@ impl PyBatchedSimulator {
 
             if game.is_game_over() {
                 // Game already over
-                obs_batch.push(encoding::encode_observation(game.state(), game.state().current_player));
+                obs_batch.push(encoding::encode_observation(
+                    game.state(),
+                    game.state().current_player,
+                ));
                 rew_batch.push(vec![0.0, 0.0]);
                 done_batch.push(true);
                 timed_out_batch.push(false);
                 valid_batch.push(false); // active=False
                 continue;
             }
-            
+
             // 1. Generate legal actions
             let (_actor, legal_actions) = generate_possible_actions(game.state());
-            
+
             // 2. Decode/Find Action
             let mut found_action: Option<Action> = None;
             for action in &legal_actions {
@@ -1448,15 +1476,14 @@ impl PyBatchedSimulator {
             }
 
             if let Some(action) = found_action {
-                
                 let actor_before = action.actor; // Should match _actor
 
                 // 3. Apply Action
                 game.apply_action(&action);
-                
+
                 // 4. Check status
                 let done = game.is_game_over();
-                
+
                 // 5. Reward
                 let mut r_actor = 0.0;
                 let mut r_opp = 0.0;
@@ -1478,7 +1505,8 @@ impl PyBatchedSimulator {
                 if self.point_reward != 0.0 {
                     let points_after = game.state().points;
                     let opponent = (actor_before + 1) % 2;
-                    let point_diff = (points_after[actor_before] as f32 - points_before[actor_before] as f32)
+                    let point_diff = (points_after[actor_before] as f32
+                        - points_before[actor_before] as f32)
                         - (points_after[opponent] as f32 - points_before[opponent] as f32);
                     r_actor += self.point_reward * point_diff;
                 }
@@ -1494,9 +1522,12 @@ impl PyBatchedSimulator {
                                 &game.state().in_play_pokemon[opponent][pos],
                             ) {
                                 if (before.remaining_hp as i32) > (after.remaining_hp as i32) {
-                                    total_damage += (before.remaining_hp - after.remaining_hp) as f32;
+                                    total_damage +=
+                                        (before.remaining_hp - after.remaining_hp) as f32;
                                 }
-                            } else if let Some(before) = &state_before.in_play_pokemon[opponent][pos] {
+                            } else if let Some(before) =
+                                &state_before.in_play_pokemon[opponent][pos]
+                            {
                                 // KO happened
                                 total_damage += before.remaining_hp as f32;
                             }
@@ -1506,21 +1537,29 @@ impl PyBatchedSimulator {
                     }
                 }
 
-                obs_batch.push(encoding::encode_observation(game.state(), game.state().current_player));
+                obs_batch.push(encoding::encode_observation(
+                    game.state(),
+                    game.state().current_player,
+                ));
                 rew_batch.push(vec![r_actor, r_opp]);
                 done_batch.push(done);
                 timed_out_batch.push(false);
                 valid_batch.push(true);
-
             } else {
-                 return Err(PyValueError::new_err(format!(
+                return Err(PyValueError::new_err(format!(
                     "Action ID {} is not legal for game {}",
                     action_id, i
                 )));
             }
         }
 
-        Ok((obs_batch, rew_batch, done_batch, timed_out_batch, valid_batch))
+        Ok((
+            obs_batch,
+            rew_batch,
+            done_batch,
+            timed_out_batch,
+            valid_batch,
+        ))
     }
 
     pub fn get_legal_actions(&self) -> PyResult<Vec<Vec<usize>>> {
@@ -1544,8 +1583,6 @@ impl PyBatchedSimulator {
         Ok(batched_legal_actions)
     }
 
-
-
     #[pyo3(name = "sample_and_step")]
     pub fn sample_and_step<'py>(
         &mut self,
@@ -1564,12 +1601,11 @@ impl PyBatchedSimulator {
     )> {
         let logits_array = logits.as_array();
         let shape = logits_array.shape();
-        
+
         if shape[0] != self.batch_size {
             return Err(PyValueError::new_err(format!(
                 "Logits batch size {} does not match simulator batch size {}",
-                shape[0],
-                self.batch_size
+                shape[0], self.batch_size
             )));
         }
 
@@ -1586,7 +1622,10 @@ impl PyBatchedSimulator {
 
                     if game.is_game_over() {
                         return (
-                            (encoding::encode_observation(game.state(), 0), encoding::encode_observation(game.state(), 1)),
+                            (
+                                encoding::encode_observation(game.state(), 0),
+                                encoding::encode_observation(game.state(), 1),
+                            ),
                             vec![0.0, 0.0],
                             true,
                             false,
@@ -1666,25 +1705,25 @@ impl PyBatchedSimulator {
                                         r_p1 -= win_reward;
                                         r_p2 += win_reward;
                                     }
-                                },
+                                }
                                 Some(GameOutcome::Tie) => {
                                     r_p1 = -1.0;
                                     r_p2 = -1.0;
-                                },
+                                }
                                 None => {}
                             }
                         }
 
                         if point_reward != 0.0 {
                             let points_after = game.state().points;
-                            let prior_points = points_before; 
-                            
+                            let prior_points = points_before;
+
                             // P1 Gain
                             let p1_gain = points_after[0] as f32 - prior_points[0] as f32;
                             if p1_gain > 0.0 {
                                 r_p1 += point_reward * p1_gain;
                             }
-                            
+
                             // P2 Gain
                             let p2_gain = points_after[1] as f32 - prior_points[1] as f32;
                             if p2_gain > 0.0 {
@@ -1701,7 +1740,8 @@ impl PyBatchedSimulator {
                                         &state_before.in_play_pokemon[target][pos],
                                         &game.state().in_play_pokemon[target][pos],
                                     ) {
-                                        if (before.remaining_hp as i32) > (after.remaining_hp as i32)
+                                        if (before.remaining_hp as i32)
+                                            > (after.remaining_hp as i32)
                                         {
                                             total_damage +=
                                                 (before.remaining_hp - after.remaining_hp) as f32;
@@ -1712,7 +1752,7 @@ impl PyBatchedSimulator {
                                         total_damage += before.remaining_hp as f32;
                                     }
                                 }
-                                
+
                                 if action.actor == 0 {
                                     r_p1 += damage_reward * total_damage;
                                     // r_p2 unchanged
@@ -1738,7 +1778,10 @@ impl PyBatchedSimulator {
                         }
 
                         (
-                            (encoding::encode_observation(game.state(), 0), encoding::encode_observation(game.state(), 1)),
+                            (
+                                encoding::encode_observation(game.state(), 0),
+                                encoding::encode_observation(game.state(), 1),
+                            ),
                             vec![r_p1, r_p2],
                             done,
                             false,
@@ -1762,7 +1805,10 @@ impl PyBatchedSimulator {
                         }
 
                         (
-                            (encoding::encode_observation(game.state(), 0), encoding::encode_observation(game.state(), 1)),
+                            (
+                                encoding::encode_observation(game.state(), 0),
+                                encoding::encode_observation(game.state(), 1),
+                            ),
                             vec![0.0, 0.0],
                             game.is_game_over(),
                             false,
@@ -1779,8 +1825,8 @@ impl PyBatchedSimulator {
 
         // Unzip results into numpy arrays
         // obs is flattened
-        let obs_dim: usize = if !results.is_empty() && !results[0].0.0.is_empty() {
-            results[0].0.0.len()
+        let obs_dim: usize = if !results.is_empty() && !results[0].0 .0.is_empty() {
+            results[0].0 .0.len()
         } else {
             // Fallback or error, assume standard size?
             // Usually games[0] has size
@@ -1802,7 +1848,8 @@ impl PyBatchedSimulator {
         let py_logp = numpy::PyArray1::<f32>::zeros_bound(py, [self.batch_size], false);
         let py_cp = numpy::PyArray1::<usize>::zeros_bound(py, [self.batch_size], false);
         let action_space_size = encoding::get_action_space_size();
-        let py_mask = numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, action_space_size], false);
+        let py_mask =
+            numpy::PyArray2::<f32>::zeros_bound(py, [self.batch_size, action_space_size], false);
 
         {
             let mut obs_0_view = py_obs_0.try_readwrite().unwrap();
@@ -1830,16 +1877,16 @@ impl PyBatchedSimulator {
             for (i, (o_tuple, r, d, t, v, a, lp, cp, m)) in results.into_iter().enumerate() {
                 // Copy observation
                 if o_tuple.0.len() == obs_dim {
-                     // efficient copy
-                     let start = i * obs_dim;
-                     let end = start + obs_dim;
-                     obs_0_slice[start..end].copy_from_slice(&o_tuple.0);
-                     obs_1_slice[start..end].copy_from_slice(&o_tuple.1);
+                    // efficient copy
+                    let start = i * obs_dim;
+                    let end = start + obs_dim;
+                    obs_0_slice[start..end].copy_from_slice(&o_tuple.0);
+                    obs_1_slice[start..end].copy_from_slice(&o_tuple.1);
                 }
-                
+
                 rew_slice[i * 2] = r[0];
                 rew_slice[i * 2 + 1] = r[1];
-                
+
                 done_slice[i] = d;
                 timeout_slice[i] = t;
                 valid_slice[i] = v;
@@ -1869,7 +1916,6 @@ impl PyBatchedSimulator {
         ))
     }
 }
-
 
 #[cfg(test)]
 mod tests {

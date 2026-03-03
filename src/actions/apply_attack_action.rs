@@ -82,7 +82,9 @@ fn forecast_attack_inner(
         let Some(mechanic) = mechanic else {
             panic!(
                 "No implementation found for attack effect: {:?} on attack {:?} of Pokemon {}",
-                effect_text, attack, card.get_full_identity()
+                effect_text,
+                attack,
+                card.get_full_identity()
             );
         };
         forecast_effect_attack_by_mechanic(state, attack, mechanic)
@@ -270,11 +272,15 @@ fn forecast_effect_attack_by_attack_id(
         AttackId::A4066PichuCracklyToss => {
             attach_energy_to_benched_basic(acting_player, EnergyType::Lightning)
         }
-        AttackId::A4077CleffaTwinklyCall => pokemon_search_outcomes(acting_player, state, false, "Cleffa Twinkly Call"),
+        AttackId::A4077CleffaTwinklyCall => {
+            pokemon_search_outcomes(acting_player, state, false, "Cleffa Twinkly Call")
+        }
         AttackId::A4105BinacleDualChop => {
             probabilistic_damage_attack(vec![0.25, 0.5, 0.25], vec![0, 30, 60])
         }
-        AttackId::A4134EeveeFindAFriend => pokemon_search_outcomes(acting_player, state, false, "Eevee Find A Friend"),
+        AttackId::A4134EeveeFindAFriend => {
+            pokemon_search_outcomes(acting_player, state, false, "Eevee Find A Friend")
+        }
         AttackId::A4146UrsaringSwingAround => {
             probabilistic_damage_attack(vec![0.25, 0.5, 0.25], vec![60, 80, 100])
         }
@@ -318,12 +324,17 @@ fn forecast_effect_attack_by_mechanic(
             target_benched_type,
         } => energy_bench_attack(energies.clone(), *target_benched_type, state, attack),
         Mechanic::VaporeonHyperWhirlpool => vaporeon_hyper_whirlpool(state, attack.fixed_damage),
-        Mechanic::SearchToHandByEnergy { energy_type } => {
-            pokemon_search_outcomes_by_type(state, false, *energy_type, "Attack Effect (SearchToHandByEnergy)")
-        }
-        Mechanic::SearchToHandSupporterCard => {
-            supporter_search_outcomes(state.current_player, state, "Attack Effect (SearchToHandSupporterCard)")
-        }
+        Mechanic::SearchToHandByEnergy { energy_type } => pokemon_search_outcomes_by_type(
+            state,
+            false,
+            *energy_type,
+            "Attack Effect (SearchToHandByEnergy)",
+        ),
+        Mechanic::SearchToHandSupporterCard => supporter_search_outcomes(
+            state.current_player,
+            state,
+            "Attack Effect (SearchToHandSupporterCard)",
+        ),
         Mechanic::SearchToBenchByName { name } => search_and_bench_by_name(state, name.clone()),
         Mechanic::InflictStatusConditions {
             conditions,
@@ -592,13 +603,25 @@ fn double_punching_family_attack(
         let attacking_ref = (action.actor, 0);
 
         // First attack: deal first_damage to opponent's active
-        handle_damage(state, attacking_ref, &[(first_damage, opponent, 0)], true, None);
+        handle_damage(
+            state,
+            attacking_ref,
+            &[(first_damage, opponent, 0)],
+            true,
+            None,
+        );
 
         // Second attack: deal second_damage to opponent's active
         // (which may be a new Pokémon if the first attack caused a KO and promotion)
         // Only deal damage if there's an active Pokémon (not KO'd without replacement)
         if state.in_play_pokemon[opponent][0].is_some() {
-            handle_damage(state, attacking_ref, &[(second_damage, opponent, 0)], true, None);
+            handle_damage(
+                state,
+                attacking_ref,
+                &[(second_damage, opponent, 0)],
+                true,
+                None,
+            );
         }
     }))
 }
@@ -610,13 +633,13 @@ fn direct_damage_per_energy_on_target(
     active_damage_effect_doutcome(0, move |_, state, action| {
         let opponent = (action.actor + 1) % 2;
         let mut choices = Vec::new();
-        
+
         let pokemon_iter: Vec<(usize, &PlayedCard)> = if bench_only {
             state.enumerate_bench_pokemon(opponent).collect()
         } else {
             state.enumerate_in_play_pokemon(opponent).collect()
         };
-        
+
         for (in_play_idx, pokemon) in pokemon_iter {
             let energy_count = pokemon.attached_energy.len() as u32;
             let damage = damage_per_energy * energy_count;
@@ -626,7 +649,7 @@ fn direct_damage_per_energy_on_target(
                 is_from_active_attack: true,
             });
         }
-        
+
         if choices.is_empty() {
             return; // No valid targets - no damage applied
         }
@@ -663,7 +686,6 @@ pub(crate) fn forecast_use_opponent_attack(
 
     forecast_attack_inner(state, &opponent_active.card, &attack, attack_index)
 }
-
 
 fn coinflip_no_effect(fixed_damage: u32) -> (Probabilities, Mutations) {
     probabilistic_damage_attack(vec![0.5, 0.5], vec![fixed_damage, 0])
@@ -990,7 +1012,7 @@ fn damage_for_each_heads_attack(
         let mut cumulative = 0.0;
         let random_value: f64 = rng.gen();
         let mut heads_count = 0;
-        
+
         for (i, &prob) in probs.iter().enumerate() {
             cumulative += prob;
             if random_value < cumulative {
@@ -1960,7 +1982,10 @@ fn dirty_throw_attack(acting_player: usize, state: &State) -> (Probabilities, Mu
         active_damage_effect_doutcome(70, move |_, state, action| {
             let possible_discards: Vec<SimpleAction> = state.hands[action.actor]
                 .iter()
-                .map(|card| SimpleAction::DiscardOwnCard { card: card.clone(), amount_left: 1 })
+                .map(|card| SimpleAction::DiscardOwnCard {
+                    card: card.clone(),
+                    amount_left: 1,
+                })
                 .collect();
 
             if !possible_discards.is_empty() {
@@ -1983,7 +2008,10 @@ fn discard_hand_card_attack(
         active_damage_effect_doutcome(damage, move |_, state, action| {
             let possible_discards: Vec<SimpleAction> = state.hands[action.actor]
                 .iter()
-                .map(|card| SimpleAction::DiscardOwnCard { card: card.clone(), amount_left: count })
+                .map(|card| SimpleAction::DiscardOwnCard {
+                    card: card.clone(),
+                    amount_left: count,
+                })
                 .collect();
 
             if !possible_discards.is_empty() {
@@ -2185,10 +2213,10 @@ fn calculate_binomial_probabilities_with_will(n: usize, guaranteed_first_heads: 
         // First coin is guaranteed heads, so we flip (n-1) coins and add 1 to the heads count
         // Probability of k total heads = probability of (k-1) heads from (n-1) flips
         let mut probs = vec![0.0; n + 1];
-        
+
         // k=0 is impossible (first flip is guaranteed heads)
         probs[0] = 0.0;
-        
+
         // For k >= 1, it's the probability of getting (k-1) heads from (n-1) flips
         for k in 1..=n {
             let remaining_heads = k - 1;

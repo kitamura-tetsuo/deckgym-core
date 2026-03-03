@@ -49,7 +49,7 @@ fn test_first_ko() {
     // needs 2 energy, so on turn 5 is first attack, and turn 7 knocks out the opponent Koffing.
     while game.get_state_clone().turn_count < 7 {
         if game.is_game_over() {
-             break;
+            break;
         }
         game.play_tick();
     }
@@ -57,6 +57,10 @@ fn test_first_ko() {
     let winner = game.play();
     let end_turn = game.get_state_clone().turn_count;
     // With RNG changes, might end at 5 or 7. Correct behavior is AA wins.
-    assert!(end_turn == 5 || end_turn == 7, "Game ended at turn {}", end_turn);
+    assert!(
+        end_turn == 5 || end_turn == 7,
+        "Game ended at turn {}",
+        end_turn
+    );
     assert_eq!(winner, Some(GameOutcome::Win(0)));
 }

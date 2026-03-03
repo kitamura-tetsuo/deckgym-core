@@ -41,7 +41,9 @@ pub static EFFECT_ABILITY_MECHANIC_MAP: LazyLock<HashMap<&'static str, AbilityMe
         // map.insert("Attacks used by your [P] Pokémon and [M] Pokémon do +30 damage to your opponent's Active Pokémon.", todo_implementation);
         map.insert(
             "Basic Pokémon in play\u{a0}(both yours and your opponent's)\u{a0}have no Abilities.",
-            AbilityMechanic::ShutDownAbilities { target_stage: Some(0) },
+            AbilityMechanic::ShutDownAbilities {
+                target_stage: Some(0),
+            },
         );
         // map.insert("During Pokémon Checkup, if this Pokémon is in the Active Spot, do 10 damage to your opponent's Active Pokémon.", todo_implementation);
         // map.insert("During your first turn, this Pokémon has no Retreat Cost.", todo_implementation);

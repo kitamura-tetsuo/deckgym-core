@@ -52,4 +52,3 @@ pub enum TurnEffect {
         player: usize,
     },
 }
-

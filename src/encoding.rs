@@ -3,7 +3,6 @@ use crate::{
     card_ids::CardId,
     models::{EnergyType, PlayedCard},
     state::State,
-
 };
 use strum::IntoEnumIterator;
 
@@ -29,38 +28,121 @@ struct ActionSlot {
 fn get_action_slots() -> Vec<ActionSlot> {
     let card_count = CardId::iter().len();
 
-    
     vec![
         // Basic turn actions
-        ActionSlot { name: "EndTurn", size: 1 },
-        ActionSlot { name: "Attack", size: 3 },
-        ActionSlot { name: "Retreat", size: 4 },
-        ActionSlot { name: "UseAbility", size: 4 },
-        ActionSlot { name: "Place", size: card_count * 4 },
-        ActionSlot { name: "Evolve", size: card_count * 4 },
-        ActionSlot { name: "Play", size: card_count },
-        ActionSlot { name: "Attach", size: ENERGY_TYPES_COUNT * 4 },
-        ActionSlot { name: "AttachTool", size: card_count * 4 },
-        ActionSlot { name: "Activate", size: 4 },
-        ActionSlot { name: "DrawCard", size: 1 },
+        ActionSlot {
+            name: "EndTurn",
+            size: 1,
+        },
+        ActionSlot {
+            name: "Attack",
+            size: 3,
+        },
+        ActionSlot {
+            name: "Retreat",
+            size: 4,
+        },
+        ActionSlot {
+            name: "UseAbility",
+            size: 4,
+        },
+        ActionSlot {
+            name: "Place",
+            size: card_count * 4,
+        },
+        ActionSlot {
+            name: "Evolve",
+            size: card_count * 4,
+        },
+        ActionSlot {
+            name: "Play",
+            size: card_count,
+        },
+        ActionSlot {
+            name: "Attach",
+            size: ENERGY_TYPES_COUNT * 4,
+        },
+        ActionSlot {
+            name: "AttachTool",
+            size: card_count * 4,
+        },
+        ActionSlot {
+            name: "Activate",
+            size: 4,
+        },
+        ActionSlot {
+            name: "DrawCard",
+            size: 1,
+        },
         // Extended actions
-        ActionSlot { name: "MoveEnergy", size: 3 * ENERGY_TYPES_COUNT }, // Bench(1..3) -> Active(0), 10 energy types
-        ActionSlot { name: "CommunicatePokemon", size: card_count },
-        ActionSlot { name: "ShufflePokemonIntoDeck", size: card_count },
-        ActionSlot { name: "ShuffleOpponentSupporter", size: card_count },
-        ActionSlot { name: "DiscardOpponentSupporter", size: card_count },
-        ActionSlot { name: "DiscardOwnCard", size: card_count },
-        ActionSlot { name: "AttachFromDiscard", size: 4 },
-        ActionSlot { name: "ApplyEeveeBagDamageBoost", size: 1 },
-        ActionSlot { name: "HealAllEeveeEvolutions", size: 1 },
-        ActionSlot { name: "DiscardFossil", size: 4 },
-        ActionSlot { name: "Heal", size: 4 },
-        ActionSlot { name: "MoveAllDamage", size: 16 }, // 4 * 4 (from x to y)
-        ActionSlot { name: "ApplyDamage", size: 4 }, // Target Active (0) or Bench (1-3)
-        ActionSlot { name: "HealAndDiscardEnergy", size: 4 },
-        ActionSlot { name: "ReturnPokemonToHand", size: 4 },
-        ActionSlot { name: "UseOpponentAttack", size: 3 },
-        ActionSlot { name: "Noop", size: 1 },
+        ActionSlot {
+            name: "MoveEnergy",
+            size: 3 * ENERGY_TYPES_COUNT,
+        }, // Bench(1..3) -> Active(0), 10 energy types
+        ActionSlot {
+            name: "CommunicatePokemon",
+            size: card_count,
+        },
+        ActionSlot {
+            name: "ShufflePokemonIntoDeck",
+            size: card_count,
+        },
+        ActionSlot {
+            name: "ShuffleOpponentSupporter",
+            size: card_count,
+        },
+        ActionSlot {
+            name: "DiscardOpponentSupporter",
+            size: card_count,
+        },
+        ActionSlot {
+            name: "DiscardOwnCard",
+            size: card_count,
+        },
+        ActionSlot {
+            name: "AttachFromDiscard",
+            size: 4,
+        },
+        ActionSlot {
+            name: "ApplyEeveeBagDamageBoost",
+            size: 1,
+        },
+        ActionSlot {
+            name: "HealAllEeveeEvolutions",
+            size: 1,
+        },
+        ActionSlot {
+            name: "DiscardFossil",
+            size: 4,
+        },
+        ActionSlot {
+            name: "Heal",
+            size: 4,
+        },
+        ActionSlot {
+            name: "MoveAllDamage",
+            size: 16,
+        }, // 4 * 4 (from x to y)
+        ActionSlot {
+            name: "ApplyDamage",
+            size: 4,
+        }, // Target Active (0) or Bench (1-3)
+        ActionSlot {
+            name: "HealAndDiscardEnergy",
+            size: 4,
+        },
+        ActionSlot {
+            name: "ReturnPokemonToHand",
+            size: 4,
+        },
+        ActionSlot {
+            name: "UseOpponentAttack",
+            size: 3,
+        },
+        ActionSlot {
+            name: "Noop",
+            size: 1,
+        },
     ]
 }
 
@@ -83,34 +165,90 @@ pub fn get_action_space_size() -> usize {
 }
 
 // Action Offsets - now derived from the ActionSlot registry
-fn get_offset_end_turn() -> usize { get_slot_offset("EndTurn") }
-fn get_offset_attack() -> usize { get_slot_offset("Attack") }
-fn get_offset_retreat() -> usize { get_slot_offset("Retreat") }
-fn get_offset_use_ability() -> usize { get_slot_offset("UseAbility") }
-fn get_offset_place() -> usize { get_slot_offset("Place") }
-fn get_offset_evolve() -> usize { get_slot_offset("Evolve") }
-fn get_offset_play() -> usize { get_slot_offset("Play") }
-fn get_offset_attach() -> usize { get_slot_offset("Attach") }
-fn get_offset_attach_tool() -> usize { get_slot_offset("AttachTool") }
-fn get_offset_activate() -> usize { get_slot_offset("Activate") }
-fn get_offset_draw_card() -> usize { get_slot_offset("DrawCard") }
-fn get_offset_move_energy() -> usize { get_slot_offset("MoveEnergy") }
-fn get_offset_communicate() -> usize { get_slot_offset("CommunicatePokemon") }
-fn get_offset_shuffle_into_deck() -> usize { get_slot_offset("ShufflePokemonIntoDeck") }
-fn get_offset_shuffle_opponent_supporter() -> usize { get_slot_offset("ShuffleOpponentSupporter") }
-fn get_offset_discard_opponent_supporter() -> usize { get_slot_offset("DiscardOpponentSupporter") }
-fn get_offset_discard_own_card() -> usize { get_slot_offset("DiscardOwnCard") }
-fn get_offset_attach_from_discard() -> usize { get_slot_offset("AttachFromDiscard") }
-fn get_offset_eevee_boost() -> usize { get_slot_offset("ApplyEeveeBagDamageBoost") }
-fn get_offset_heal_eevee() -> usize { get_slot_offset("HealAllEeveeEvolutions") }
-fn get_offset_discard_fossil() -> usize { get_slot_offset("DiscardFossil") }
-fn get_offset_heal() -> usize { get_slot_offset("Heal") }
-fn get_offset_move_damage() -> usize { get_slot_offset("MoveAllDamage") }
-pub fn get_offset_apply_damage() -> usize { get_slot_offset("ApplyDamage") }
-fn get_offset_heal_discard() -> usize { get_slot_offset("HealAndDiscardEnergy") }
-fn get_offset_return_hand() -> usize { get_slot_offset("ReturnPokemonToHand") }
-fn get_offset_use_opp_attack() -> usize { get_slot_offset("UseOpponentAttack") }
-fn get_offset_noop() -> usize { get_slot_offset("Noop") }
+fn get_offset_end_turn() -> usize {
+    get_slot_offset("EndTurn")
+}
+fn get_offset_attack() -> usize {
+    get_slot_offset("Attack")
+}
+fn get_offset_retreat() -> usize {
+    get_slot_offset("Retreat")
+}
+fn get_offset_use_ability() -> usize {
+    get_slot_offset("UseAbility")
+}
+fn get_offset_place() -> usize {
+    get_slot_offset("Place")
+}
+fn get_offset_evolve() -> usize {
+    get_slot_offset("Evolve")
+}
+fn get_offset_play() -> usize {
+    get_slot_offset("Play")
+}
+fn get_offset_attach() -> usize {
+    get_slot_offset("Attach")
+}
+fn get_offset_attach_tool() -> usize {
+    get_slot_offset("AttachTool")
+}
+fn get_offset_activate() -> usize {
+    get_slot_offset("Activate")
+}
+fn get_offset_draw_card() -> usize {
+    get_slot_offset("DrawCard")
+}
+fn get_offset_move_energy() -> usize {
+    get_slot_offset("MoveEnergy")
+}
+fn get_offset_communicate() -> usize {
+    get_slot_offset("CommunicatePokemon")
+}
+fn get_offset_shuffle_into_deck() -> usize {
+    get_slot_offset("ShufflePokemonIntoDeck")
+}
+fn get_offset_shuffle_opponent_supporter() -> usize {
+    get_slot_offset("ShuffleOpponentSupporter")
+}
+fn get_offset_discard_opponent_supporter() -> usize {
+    get_slot_offset("DiscardOpponentSupporter")
+}
+fn get_offset_discard_own_card() -> usize {
+    get_slot_offset("DiscardOwnCard")
+}
+fn get_offset_attach_from_discard() -> usize {
+    get_slot_offset("AttachFromDiscard")
+}
+fn get_offset_eevee_boost() -> usize {
+    get_slot_offset("ApplyEeveeBagDamageBoost")
+}
+fn get_offset_heal_eevee() -> usize {
+    get_slot_offset("HealAllEeveeEvolutions")
+}
+fn get_offset_discard_fossil() -> usize {
+    get_slot_offset("DiscardFossil")
+}
+fn get_offset_heal() -> usize {
+    get_slot_offset("Heal")
+}
+fn get_offset_move_damage() -> usize {
+    get_slot_offset("MoveAllDamage")
+}
+pub fn get_offset_apply_damage() -> usize {
+    get_slot_offset("ApplyDamage")
+}
+fn get_offset_heal_discard() -> usize {
+    get_slot_offset("HealAndDiscardEnergy")
+}
+fn get_offset_return_hand() -> usize {
+    get_slot_offset("ReturnPokemonToHand")
+}
+fn get_offset_use_opp_attack() -> usize {
+    get_slot_offset("UseOpponentAttack")
+}
+fn get_offset_noop() -> usize {
+    get_slot_offset("Noop")
+}
 
 pub fn encode_action(action: &SimpleAction) -> Option<usize> {
     match action {
@@ -198,70 +336,75 @@ pub fn encode_action(action: &SimpleAction) -> Option<usize> {
             }
         }
         SimpleAction::DrawCard { .. } => Some(get_offset_draw_card()),
-        
+
         // New Mappings
-        SimpleAction::MoveEnergy { from_in_play_idx, to_in_play_idx, energy_type, .. } => {
-             // Supports Bench(1..3) -> any, or just Active?
-             // Elemental switch is specifically Bench -> Active.
-             // We map generically: from (1..3) -> 0.
-             if *to_in_play_idx == 0 && *from_in_play_idx > 0 && *from_in_play_idx < 4 {
-                 let energy_idx = energy_type_to_index(*energy_type);
-                 let from_bench_idx = from_in_play_idx - 1; // 0..2
-                 Some(get_offset_move_energy() + from_bench_idx * 10 + energy_idx)
-             } else {
-                 None
-             }
+        SimpleAction::MoveEnergy {
+            from_in_play_idx,
+            to_in_play_idx,
+            energy_type,
+            ..
+        } => {
+            // Supports Bench(1..3) -> any, or just Active?
+            // Elemental switch is specifically Bench -> Active.
+            // We map generically: from (1..3) -> 0.
+            if *to_in_play_idx == 0 && *from_in_play_idx > 0 && *from_in_play_idx < 4 {
+                let energy_idx = energy_type_to_index(*energy_type);
+                let from_bench_idx = from_in_play_idx - 1; // 0..2
+                Some(get_offset_move_energy() + from_bench_idx * 10 + energy_idx)
+            } else {
+                None
+            }
         }
         SimpleAction::CommunicatePokemon { hand_pokemon } => {
-             let card_id = CardId::from_card_id(&hand_pokemon.get_id())?;
-             Some(get_offset_communicate() + card_id as usize)
-        },
+            let card_id = CardId::from_card_id(&hand_pokemon.get_id())?;
+            Some(get_offset_communicate() + card_id as usize)
+        }
         SimpleAction::ShufflePokemonIntoDeck { hand_pokemon, .. } => {
-             let card_id = CardId::from_card_id(&hand_pokemon.get_id())?;
-             Some(get_offset_shuffle_into_deck() + card_id as usize)
-        },
+            let card_id = CardId::from_card_id(&hand_pokemon.get_id())?;
+            Some(get_offset_shuffle_into_deck() + card_id as usize)
+        }
         SimpleAction::ShuffleOpponentSupporter { supporter_card } => {
             let card_id = CardId::from_card_id(&supporter_card.get_id())?;
-             Some(get_offset_shuffle_opponent_supporter() + card_id as usize)
-        },
+            Some(get_offset_shuffle_opponent_supporter() + card_id as usize)
+        }
         SimpleAction::DiscardOpponentSupporter { supporter_card } => {
-             let card_id = CardId::from_card_id(&supporter_card.get_id())?;
-             Some(get_offset_discard_opponent_supporter() + card_id as usize)
-        },
+            let card_id = CardId::from_card_id(&supporter_card.get_id())?;
+            Some(get_offset_discard_opponent_supporter() + card_id as usize)
+        }
         SimpleAction::DiscardOwnCard { card, .. } => {
-             let card_id = CardId::from_card_id(&card.get_id())?;
-             Some(get_offset_discard_own_card() + card_id as usize)
-        },
+            let card_id = CardId::from_card_id(&card.get_id())?;
+            Some(get_offset_discard_own_card() + card_id as usize)
+        }
         SimpleAction::AttachFromDiscard { in_play_idx, .. } => {
-             if *in_play_idx < 4 {
-                 Some(get_offset_attach_from_discard() + in_play_idx)
-             } else {
-                 None
-             }
-        },
+            if *in_play_idx < 4 {
+                Some(get_offset_attach_from_discard() + in_play_idx)
+            } else {
+                None
+            }
+        }
         SimpleAction::ApplyEeveeBagDamageBoost => Some(get_offset_eevee_boost()),
         SimpleAction::HealAllEeveeEvolutions => Some(get_offset_heal_eevee()),
         SimpleAction::DiscardFossil { in_play_idx } => {
-             if *in_play_idx < 4 {
-                 Some(get_offset_discard_fossil() + in_play_idx)
-             } else {
-                 None
-             }
-        },
+            if *in_play_idx < 4 {
+                Some(get_offset_discard_fossil() + in_play_idx)
+            } else {
+                None
+            }
+        }
         SimpleAction::Heal { in_play_idx, .. } => {
-             if *in_play_idx < 4 {
-                 Some(get_offset_heal() + in_play_idx)
-             } else {
-                 None
-             }
-        },
+            if *in_play_idx < 4 {
+                Some(get_offset_heal() + in_play_idx)
+            } else {
+                None
+            }
+        }
         SimpleAction::MoveAllDamage { from, to } => {
-             if *from < 4 && *to < 4 {
-                 Some(get_offset_move_damage() + from * 4 + to)
-             } else {
-                 None
-             }
-        },
+            if *from < 4 && *to < 4 {
+                Some(get_offset_move_damage() + from * 4 + to)
+            } else {
+                None
+            }
+        }
         SimpleAction::ApplyDamage { targets, .. } => {
             if let Some((_, _, in_play_idx)) = targets.first() {
                 if *in_play_idx < 4 {
@@ -325,7 +468,7 @@ pub fn action_name(id: usize) -> String {
     let offset_move_damage = get_offset_move_damage();
     let offset_apply_damage = get_offset_apply_damage();
     let offset_noop = get_offset_noop();
-    
+
     if id == offset_end_turn {
         return "EndTurn".to_string();
     }
@@ -440,7 +583,7 @@ pub fn action_name(id: usize) -> String {
     }
     let offset_return_hand = get_offset_return_hand();
     let offset_use_opp_attack = get_offset_use_opp_attack();
-    
+
     if (offset_heal_discard..offset_return_hand).contains(&id) {
         let idx = id - offset_heal_discard;
         return format!("HealAndDiscardEnergy({})", idx);
@@ -497,8 +640,6 @@ fn card_index_to_id(idx: usize) -> Option<CardId> {
     CardId::iter().nth(idx)
 }
 
-
-
 pub fn encode_observation(state: &State, player: usize) -> Vec<f32> {
     encode_state(state, player, false)
 }
@@ -519,7 +660,11 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
     // 1.1 Turn Flags (New)
     obs.push(if state.has_played_support { 1.0 } else { 0.0 });
     obs.push(if state.has_retreated { 1.0 } else { 0.0 });
-    obs.push(if state.knocked_out_by_opponent_attack_last_turn { 1.0 } else { 0.0 });
+    obs.push(if state.knocked_out_by_opponent_attack_last_turn {
+        1.0
+    } else {
+        0.0
+    });
 
     // 1.2 Energy Info (New)
     let mut current_energy_vec = vec![0.0; ENERGY_TYPES_COUNT];
@@ -577,22 +722,49 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
 
             // Attached Tool (ID)
             if let Some(tool_card) = &p.attached_tool {
-                 if let Some(cid) = CardId::from_card_id(&tool_card.get_id()) {
-                     obs.push(cid as usize as f32);
-                 } else {
-                     obs.push(-1.0);
-                 }
+                if let Some(cid) = CardId::from_card_id(&tool_card.get_id()) {
+                    obs.push(cid as usize as f32);
+                } else {
+                    obs.push(-1.0);
+                }
             } else {
                 obs.push(-1.0);
             }
 
             // Key Effects
             let active_effects = p.get_active_effects();
-            obs.push(if active_effects.contains(&crate::effects::CardEffect::NoRetreat) { 1.0 } else { 0.0 });
-            obs.push(if active_effects.contains(&crate::effects::CardEffect::CannotAttack) { 1.0 } else { 0.0 });
-            obs.push(if active_effects.iter().any(|e| matches!(e, crate::effects::CardEffect::ReducedDamage { .. })) { 1.0 } else { 0.0 });
-            obs.push(if active_effects.contains(&crate::effects::CardEffect::PreventAllDamageAndEffects) { 1.0 } else { 0.0 });
-
+            obs.push(
+                if active_effects.contains(&crate::effects::CardEffect::NoRetreat) {
+                    1.0
+                } else {
+                    0.0
+                },
+            );
+            obs.push(
+                if active_effects.contains(&crate::effects::CardEffect::CannotAttack) {
+                    1.0
+                } else {
+                    0.0
+                },
+            );
+            obs.push(
+                if active_effects
+                    .iter()
+                    .any(|e| matches!(e, crate::effects::CardEffect::ReducedDamage { .. }))
+                {
+                    1.0
+                } else {
+                    0.0
+                },
+            );
+            obs.push(
+                if active_effects.contains(&crate::effects::CardEffect::PreventAllDamageAndEffects)
+                {
+                    1.0
+                } else {
+                    0.0
+                },
+            );
         } else {
             // Empty slot
             obs.push(0.0); // HP
@@ -626,7 +798,11 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
     let hand_slots_limit = 10;
     let mut hand_slots = vec![-1.0; hand_slots_limit];
     if !public_only {
-        for (i, card) in state.hands[player].iter().take(hand_slots_limit).enumerate() {
+        for (i, card) in state.hands[player]
+            .iter()
+            .take(hand_slots_limit)
+            .enumerate()
+        {
             if let Some(cid) = CardId::from_card_id(&card.get_id()) {
                 hand_slots[i] = cid as usize as f32;
             }
@@ -638,7 +814,7 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
     let mut op_hand_slots = vec![-1.0; hand_slots_limit];
     let op_hand = &state.hands[1 - player];
     let op_vis = &state.hands_visibility[1 - player];
-    
+
     for (i, card) in op_hand.iter().take(hand_slots_limit).enumerate() {
         // If public_only is true, we see everything? No, public_only means "Spectator view".
         // But regardless, we check visibility flag.
@@ -676,7 +852,7 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
     // 10.1 Opponent Known Deck (New) - 20 slots
     let mut op_deck_ids = Vec::new();
     let op_deck = &state.decks[1 - player];
-    
+
     // Iterate over cards and visibility
     // Accessing visibility field directly
     let op_deck_vis = &op_deck.visibility;
@@ -693,7 +869,7 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
 
     // Sort
     op_deck_ids.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    
+
     // Pad to 20
     while op_deck_ids.len() < 20 {
         op_deck_ids.push(-1.0);
@@ -703,7 +879,12 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
     // 11. Discard Slots (Fixed size: 10)
     let discard_slots_limit = 10;
     let mut discard_slots = vec![-1.0; discard_slots_limit];
-    for (i, card) in state.discard_piles[player].iter().rev().take(discard_slots_limit).enumerate() {
+    for (i, card) in state.discard_piles[player]
+        .iter()
+        .rev()
+        .take(discard_slots_limit)
+        .enumerate()
+    {
         if let Some(cid) = CardId::from_card_id(&card.get_id()) {
             discard_slots[i] = cid as usize as f32;
         }
@@ -712,7 +893,12 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
 
     // 12. Opponent Discard Slots (Fixed size: 10)
     let mut op_discard_slots = vec![-1.0; discard_slots_limit];
-    for (i, card) in state.discard_piles[1 - player].iter().rev().take(discard_slots_limit).enumerate() {
+    for (i, card) in state.discard_piles[1 - player]
+        .iter()
+        .rev()
+        .take(discard_slots_limit)
+        .enumerate()
+    {
         if let Some(cid) = CardId::from_card_id(&card.get_id()) {
             op_discard_slots[i] = cid as usize as f32;
         }
@@ -725,4 +911,3 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
 pub fn observation_length(state: &State) -> usize {
     encode_state(state, 0, false).len()
 }
-

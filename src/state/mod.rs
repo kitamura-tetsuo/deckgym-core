@@ -173,7 +173,7 @@ impl State {
             .expect("Evolution card should be in deck");
         self.decks[player].cards.remove(pos);
         if !self.decks[player].visibility.is_empty() {
-             self.decks[player].visibility.remove(pos);
+            self.decks[player].visibility.remove(pos);
         }
     }
 
@@ -203,13 +203,23 @@ impl State {
         }
     }
 
-    pub(crate) fn transfer_card_from_deck_to_hand(&mut self, player: usize, card: &Card, source: &str) {
+    pub(crate) fn transfer_card_from_deck_to_hand(
+        &mut self,
+        player: usize,
+        card: &Card,
+        source: &str,
+    ) {
         // Remove from deck and add to hand
         let pos = self.decks[player]
             .cards
             .iter()
             .position(|c| c == card)
-            .unwrap_or_else(|| panic!("Card {:?} must exist in deck to transfer to hand (Source: {})", card, source));
+            .unwrap_or_else(|| {
+                panic!(
+                    "Card {:?} must exist in deck to transfer to hand (Source: {})",
+                    card, source
+                )
+            });
         self.decks[player].cards.remove(pos);
         if !self.decks[player].visibility.is_empty() {
             self.decks[player].visibility.remove(pos);
@@ -273,7 +283,8 @@ impl State {
             if crate::state::has_comfey_flower_shield(self, player) {
                 let mut indices_to_cure = Vec::new();
                 for (i, p) in self.enumerate_in_play_pokemon(player) {
-                    if p.attached_energy.contains(&EnergyType::Psychic) && p.has_status_condition() {
+                    if p.attached_energy.contains(&EnergyType::Psychic) && p.has_status_condition()
+                    {
                         indices_to_cure.push(i);
                     }
                 }
@@ -671,4 +682,3 @@ mod tests {
         state.transfer_card_from_deck_to_hand(0, &mon, "Test Source");
     }
 }
-

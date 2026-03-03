@@ -19,13 +19,18 @@ pub(crate) fn pokemon_search_outcomes(
     source: &str,
 ) -> (Probabilities, Mutations) {
     let source = source.to_string();
-    card_search_outcomes_with_filter(acting_player, state, move |card: &&Card| {
-        if basic_only {
-            card.is_basic()
-        } else {
-            matches!(card, Card::Pokemon(_))
-        }
-    }, source)
+    card_search_outcomes_with_filter(
+        acting_player,
+        state,
+        move |card: &&Card| {
+            if basic_only {
+                card.is_basic()
+            } else {
+                matches!(card, Card::Pokemon(_))
+            }
+        },
+        source,
+    )
 }
 
 pub(crate) fn pokemon_search_outcomes_by_type(
@@ -34,7 +39,13 @@ pub(crate) fn pokemon_search_outcomes_by_type(
     energy_type: EnergyType,
     source: &str,
 ) -> (Probabilities, Mutations) {
-    pokemon_search_outcomes_by_type_for_player(state.current_player, state, basic_only, energy_type, source)
+    pokemon_search_outcomes_by_type_for_player(
+        state.current_player,
+        state,
+        basic_only,
+        energy_type,
+        source,
+    )
 }
 
 pub(crate) fn pokemon_search_outcomes_by_type_for_player(
@@ -45,21 +56,31 @@ pub(crate) fn pokemon_search_outcomes_by_type_for_player(
     source: &str,
 ) -> (Probabilities, Mutations) {
     let source = source.to_string();
-    card_search_outcomes_with_filter(acting_player, state, move |card: &&Card| {
-        let type_matches = card.get_type().map(|t| t == energy_type).unwrap_or(false);
-        let basic_check = !basic_only || card.is_basic();
-        type_matches && basic_check
-    }, source)
+    card_search_outcomes_with_filter(
+        acting_player,
+        state,
+        move |card: &&Card| {
+            let type_matches = card.get_type().map(|t| t == energy_type).unwrap_or(false);
+            let basic_check = !basic_only || card.is_basic();
+            type_matches && basic_check
+        },
+        source,
+    )
 }
 
 pub(crate) fn gladion_search_outcomes(
     acting_player: usize,
     state: &State,
 ) -> (Probabilities, Mutations) {
-    card_search_outcomes_with_filter(acting_player, state, move |card: &&Card| {
-        let name = card.get_name();
-        name == "Type: Null" || name == "Silvally"
-    }, "Gladion".to_string())
+    card_search_outcomes_with_filter(
+        acting_player,
+        state,
+        move |card: &&Card| {
+            let name = card.get_name();
+            name == "Type: Null" || name == "Silvally"
+        },
+        "Gladion".to_string(),
+    )
 }
 
 pub(crate) fn supporter_search_outcomes(

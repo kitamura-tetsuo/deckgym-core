@@ -1,0 +1,12 @@
+<<<<<<< SEARCH
+        CardId::A2b072TeamRocketGrunt | CardId::A2b091TeamRocketGrunt => {
+            can_play_team_rocket_grunt(state, trainer_card)
+        }
+=======
+        CardId::A2b072TeamRocketGrunt | CardId::A2b091TeamRocketGrunt => {
+            can_play_team_rocket_grunt(state, trainer_card)
+        }
+        CardId::B2a086ElectricGenerator | CardId::B2a131ElectricGenerator => {
+            can_play_electric_generator(state, trainer_card)
+        }
+>>>>>>> REPLACE
