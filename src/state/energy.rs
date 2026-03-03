@@ -38,7 +38,7 @@ impl State {
             let pos = self.discard_energies[player]
                 .iter()
                 .position(|e| e == energy)
-                .expect("Energy should be in discard pile");
+                .unwrap_or(0);
             self.discard_energies[player].remove(pos);
         }
 
