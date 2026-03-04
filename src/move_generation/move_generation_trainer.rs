@@ -190,9 +190,10 @@ pub fn trainer_move_generation_implementation(
         | CardId::B1216CoverFossil => can_play_fossil(state, trainer_card),
 
         // Stadium cards can always be played
-        CardId::B2153TrainingArea | CardId::B2154StartingPlains | CardId::B2155PeculiarPlaza => {
-            can_play_trainer(state, trainer_card)
-        }
+        CardId::B2153TrainingArea
+        | CardId::B2154StartingPlains
+        | CardId::B2155PeculiarPlaza
+        | CardId::B2a093Mesagoza => can_play_trainer(state, trainer_card),
         CardId::B2a086ElectricGenerator | CardId::B2a131ElectricGenerator => {
             can_play_electric_generator(state, trainer_card)
         }

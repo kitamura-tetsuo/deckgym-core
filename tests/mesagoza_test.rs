@@ -1,12 +1,11 @@
 use deckgym::{
-    actions::{Action, SimpleAction},
+    actions::{apply_action, Action, SimpleAction},
     card_ids::CardId,
     database::get_card_by_enum,
-    hooks::to_playable_card,
-    models::{Card, PlayedCard},
+    models::Card,
     Deck, State,
 };
-use rand::SeedableRng;
+use rand::{rngs::StdRng, SeedableRng};
 
 #[test]
 fn test_mesagoza_action_generation() {
@@ -170,4 +169,33 @@ fn test_mesagoza_comprehensive() {
     assert!(found_pikachu, "Should have found Pikachu at least once");
     assert!(found_bulbasaur, "Should have found Bulbasaur at least once");
     assert!(found_tails, "Should have got Tails at least once");
+}
+#[test]
+fn test_play_mesagoza_from_hand() {
+    let mesagoza = get_card_by_enum(CardId::B2a093Mesagoza);
+    let mut state = State::new(&Deck::default(), &Deck::default());
+    state.hands[0].push(mesagoza.clone());
+    state.hands_visibility[0].push(true);
+    state.turn_count = 1;
+
+    let action = Action {
+        actor: 0,
+        action: SimpleAction::Play {
+            trainer_card: match mesagoza {
+                Card::Trainer(t) => t,
+                _ => panic!("Expected trainer card"),
+            },
+        },
+        is_stack: false,
+    };
+
+    let mut rng = StdRng::seed_from_u64(42);
+    apply_action(&mut rng, &mut state, &action);
+
+    assert!(state.get_stadium().is_some(), "Stadium should be set after playing Mesagoza");
+    assert_eq!(
+        state.get_stadium().unwrap().get_id(),
+        "B2a 093",
+        "Stadium should be Mesagoza"
+    );
 }

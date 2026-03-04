@@ -35,6 +35,23 @@ pub fn forecast_trainer_action(
     state: &State,
     trainer_card: &TrainerCard,
 ) -> (Probabilities, Mutations) {
+    forecast_trainer_action_inner(acting_player, state, trainer_card, false)
+}
+
+pub fn forecast_stadium_use_action(
+    acting_player: usize,
+    state: &State,
+    trainer_card: &TrainerCard,
+) -> (Probabilities, Mutations) {
+    forecast_trainer_action_inner(acting_player, state, trainer_card, true)
+}
+
+fn forecast_trainer_action_inner(
+    acting_player: usize,
+    state: &State,
+    trainer_card: &TrainerCard,
+    is_stadium_use: bool,
+) -> (Probabilities, Mutations) {
     if trainer_card.trainer_card_type == TrainerType::Tool {
         if is_tool_effect_implemented(trainer_card) {
             return doutcome(attach_tool);
@@ -162,7 +179,13 @@ pub fn forecast_trainer_action(
         CardId::B2153TrainingArea | CardId::B2154StartingPlains | CardId::B2155PeculiarPlaza => {
             doutcome(stadium_effect)
         }
-        CardId::B2a093Mesagoza => mesagoza_outcomes(acting_player, state),
+        CardId::B2a093Mesagoza => {
+            if is_stadium_use {
+                mesagoza_outcomes(acting_player, state)
+            } else {
+                doutcome(stadium_effect)
+            }
+        }
         CardId::B2a086ElectricGenerator | CardId::B2a131ElectricGenerator => {
             electric_generator_outcomes(acting_player, state)
         }

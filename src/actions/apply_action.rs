@@ -16,7 +16,7 @@ use crate::{
 use super::{
     apply_action_helpers::{forecast_end_turn, handle_damage, Mutations, Probabilities},
     apply_attack_action::forecast_attack,
-    apply_trainer_action::forecast_trainer_action,
+    apply_trainer_action::{forecast_stadium_use_action, forecast_trainer_action},
     Action, SimpleAction,
 };
 
@@ -225,7 +225,7 @@ fn apply_deterministic_action(state: &mut State, action: &Action) {
 }
 
 fn forecast_use_stadium(actor: usize, state: &State) -> (Probabilities, Mutations) {
-    forecast_trainer_action(
+    forecast_stadium_use_action(
         actor,
         state,
         state
