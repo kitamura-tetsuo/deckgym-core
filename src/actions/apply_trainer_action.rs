@@ -162,6 +162,9 @@ pub fn forecast_trainer_action(
         CardId::B2153TrainingArea | CardId::B2154StartingPlains | CardId::B2155PeculiarPlaza => {
             doutcome(stadium_effect)
         }
+        CardId::B2a086ElectricGenerator | CardId::B2a131ElectricGenerator => {
+            electric_generator_outcomes(acting_player, state)
+        }
         _ => panic!(
             "Unsupported Trainer Card: {} ({})",
             trainer_card.name, trainer_card.id
@@ -1222,6 +1225,44 @@ fn quick_grow_extract_effect(acting_player: usize, state: &State) -> (Probabilit
             state.decks[action.actor].shuffle(false, rng);
         }));
     }
+
+    (probabilities, outcomes)
+}
+
+/// Electric Generator: Flip a coin. If heads, take a [L] Energy from your Energy Zone
+/// and attach it to 1 of your Benched [L] Pokémon.
+fn electric_generator_outcomes(acting_player: usize, state: &State) -> (Probabilities, Mutations) {
+    // Collect benched Lightning Pokemon indices now, before moving into closures
+    let benched_lightning_indices: Vec<usize> = state
+        .enumerate_bench_pokemon(acting_player)
+        .filter(|(_, pokemon)| pokemon.get_energy_type() == Some(EnergyType::Lightning))
+        .map(|(idx, _)| idx)
+        .collect();
+
+    let probabilities = vec![0.5, 0.5]; // tails, heads
+    let mut outcomes: Mutations = vec![];
+
+    // Outcome 0: tails - do nothing
+    outcomes.push(Box::new(|_, _state, _action| {
+        debug!("Electric Generator: Tails! No energy attached.");
+    }));
+
+    // Outcome 1: heads - player chooses a benched [L] Pokémon to attach 1 [L] Energy
+    outcomes.push(Box::new(move |_, state, action| {
+        debug!("Electric Generator: Heads! Attaching [L] Energy to a Benched [L] Pokémon.");
+        let possible_attachments: Vec<SimpleAction> = benched_lightning_indices
+            .iter()
+            .map(|&idx| SimpleAction::Attach {
+                attachments: vec![(1, EnergyType::Lightning, idx)],
+                is_turn_energy: false,
+            })
+            .collect();
+        if !possible_attachments.is_empty() {
+            state
+                .move_generation_stack
+                .push((action.actor, possible_attachments));
+        }
+    }));
 
     (probabilities, outcomes)
 }

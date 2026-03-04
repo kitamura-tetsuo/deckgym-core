@@ -193,6 +193,9 @@ pub fn trainer_move_generation_implementation(
         CardId::B2153TrainingArea | CardId::B2154StartingPlains | CardId::B2155PeculiarPlaza => {
             can_play_trainer(state, trainer_card)
         }
+        CardId::B2a086ElectricGenerator | CardId::B2a131ElectricGenerator => {
+            can_play_electric_generator(state, trainer_card)
+        }
         _ => None,
     }
 }
@@ -702,6 +705,21 @@ fn can_play_guzma(state: &State, trainer_card: &TrainerCard) -> Option<Vec<Simpl
         .any(|(_, p)| p.has_tool_attached());
 
     if opponent_has_tool {
+        can_play_trainer(state, trainer_card)
+    } else {
+        cannot_play_trainer()
+    }
+}
+
+/// Check if Electric Generator can be played (requires at least 1 Benched [L] Pokémon)
+fn can_play_electric_generator(
+    state: &State,
+    trainer_card: &TrainerCard,
+) -> Option<Vec<SimpleAction>> {
+    let has_benched_lightning = state
+        .enumerate_bench_pokemon(state.current_player)
+        .any(|(_, pokemon)| pokemon.get_energy_type() == Some(EnergyType::Lightning));
+    if has_benched_lightning {
         can_play_trainer(state, trainer_card)
     } else {
         cannot_play_trainer()
