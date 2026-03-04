@@ -24,7 +24,11 @@ pub use move_generation_trainer::{
 pub fn generate_possible_actions(state: &State) -> (usize, Vec<Action>) {
     let in_initial_setup_phase = state.turn_count == 0;
     if in_initial_setup_phase {
-        let possible_actions = generate_initial_setup_actions(state)
+        let mut actions = generate_initial_setup_actions(state);
+        if let Some(stadium_action) = generate_stadium_action(state) {
+            actions.push(stadium_action);
+        }
+        let possible_actions = actions
             .iter()
             .map(|action| Action {
                 actor: state.current_player,
@@ -97,6 +101,11 @@ pub fn generate_possible_actions(state: &State) -> (usize, Vec<Action>) {
     // Add actions given by abilities
     let ability_actions = generate_ability_actions(state);
     actions.extend(ability_actions);
+
+    // Maybe use Stadium action
+    if let Some(stadium_action) = generate_stadium_action(state) {
+        actions.push(stadium_action);
+    }
 
     let possible_actions = actions
         .iter()
@@ -254,6 +263,20 @@ fn has_opponent_aerodactyl_ex_primeval_law(state: &State, player: usize) -> bool
                 .map(|id| id == AbilityId::A1a046AerodactylExPrimevalLaw)
                 .unwrap_or(false)
         })
+}
+
+fn generate_stadium_action(state: &State) -> Option<SimpleAction> {
+    if state.stadium_used_this_turn {
+        return None;
+    }
+
+    let stadium = state.get_stadium()?;
+    let stadium_id = crate::card_ids::CardId::from_card_id(&stadium.get_id())?;
+
+    match stadium_id {
+        crate::card_ids::CardId::B2a093Mesagoza => Some(SimpleAction::UseStadium),
+        _ => None,
+    }
 }
 
 #[cfg(test)]

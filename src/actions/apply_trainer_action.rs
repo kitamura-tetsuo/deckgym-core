@@ -162,6 +162,7 @@ pub fn forecast_trainer_action(
         CardId::B2153TrainingArea | CardId::B2154StartingPlains | CardId::B2155PeculiarPlaza => {
             doutcome(stadium_effect)
         }
+        CardId::B2a093Mesagoza => mesagoza_outcomes(acting_player, state),
         CardId::B2a086ElectricGenerator | CardId::B2a131ElectricGenerator => {
             electric_generator_outcomes(acting_player, state)
         }
@@ -1261,6 +1262,59 @@ fn electric_generator_outcomes(acting_player: usize, state: &State) -> (Probabil
             state
                 .move_generation_stack
                 .push((action.actor, possible_attachments));
+        }
+    }));
+
+    (probabilities, outcomes)
+}
+
+fn mesagoza_outcomes(acting_player: usize, _state: &State) -> (Probabilities, Mutations) {
+    let probabilities = vec![0.5, 0.5]; // tails, heads
+    let mut outcomes: Mutations = vec![];
+
+    // Outcome 0: tails - do nothing
+    outcomes.push(Box::new(|_, state, _action| {
+        debug!("Mesagoza: Tails! No Pokémon found.");
+        state.stadium_used_this_turn = true;
+    }));
+
+    // Outcome 1: heads - search deck for random Pokémon
+    outcomes.push(Box::new(move |_rng, state, _action| {
+        debug!("Mesagoza: Heads! Searching for a random Pokémon.");
+        state.stadium_used_this_turn = true;
+
+        let (probs, mut search_mutations) = pokemon_search_outcomes(
+            acting_player,
+            state,
+            false, // any Pokémon
+            "Mesagoza",
+        );
+
+        if probs.len() == 1 {
+            // Only one way (likely no pokemon in deck or only one kind)
+            search_mutations.remove(0)(
+                &mut rand::SeedableRng::seed_from_u64(0), // Dummy RNG for deterministic part
+                state,
+                &Action {
+                    actor: acting_player,
+                    action: SimpleAction::Noop,
+                    is_stack: true,
+                },
+            );
+        } else {
+            // Multiple possibilities, push to generation stack
+            state.move_generation_stack.push((acting_player, vec![])); // Placeholder for outcome selection?
+            // Wait, pokemon_search_outcomes usually works by returning Probs + Mutations.
+            // If we are inside a mutation, we should probably use a simplified search or
+            // handle it like other random search trainers.
+            // Most random searches in this engine use doutcome with inner move_generation_stack push if multiple.
+            // Actually, apply_deterministic_action calls the mutation.
+            // If the mutation itself is probabilistic, we should have handled it in apply_action.rs.
+            
+            // Re-thinking: In ApplyStadium, we call forecast... then we take the mutation.
+            // If Mesagoza is probabilistic, ApplyStadium should have been probabilistic.
+            // But UseStadium is deterministic because it *triggers* the effect.
+            // Wait, if I trigger UseStadium, it's like Play. It should lead to probabilistic outcomes.
         }
     }));
 

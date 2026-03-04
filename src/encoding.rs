@@ -140,6 +140,10 @@ fn get_action_slots() -> Vec<ActionSlot> {
             size: 3,
         },
         ActionSlot {
+            name: "UseStadium",
+            size: 1,
+        },
+        ActionSlot {
             name: "Noop",
             size: 1,
         },
@@ -245,6 +249,9 @@ fn get_offset_return_hand() -> usize {
 }
 fn get_offset_use_opp_attack() -> usize {
     get_slot_offset("UseOpponentAttack")
+}
+fn get_offset_use_stadium() -> usize {
+    get_slot_offset("UseStadium")
 }
 fn get_offset_noop() -> usize {
     get_slot_offset("Noop")
@@ -437,6 +444,7 @@ pub fn encode_action(action: &SimpleAction) -> Option<usize> {
                 None
             }
         }
+        SimpleAction::UseStadium => Some(get_offset_use_stadium()),
         SimpleAction::Noop => Some(get_offset_noop()),
     }
 }
@@ -467,6 +475,7 @@ pub fn action_name(id: usize) -> String {
     let offset_heal = get_offset_heal();
     let offset_move_damage = get_offset_move_damage();
     let offset_apply_damage = get_offset_apply_damage();
+    let offset_use_stadium = get_offset_use_stadium();
     let offset_noop = get_offset_noop();
 
     if id == offset_end_turn {
@@ -592,9 +601,12 @@ pub fn action_name(id: usize) -> String {
         let idx = id - offset_return_hand;
         return format!("ReturnPokemonToHand({})", idx);
     }
-    if (offset_use_opp_attack..offset_noop).contains(&id) {
+    if (offset_use_opp_attack..offset_use_stadium).contains(&id) {
         let idx = id - offset_use_opp_attack;
         return format!("UseOpponentAttack({})", idx);
+    }
+    if id == offset_use_stadium {
+        return "UseStadium".to_string();
     }
     if id == offset_noop {
         return "Noop".to_string();

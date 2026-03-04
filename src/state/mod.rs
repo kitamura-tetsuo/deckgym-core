@@ -52,6 +52,7 @@ pub struct State {
     pub(crate) has_retreated: bool,
     pub(crate) knocked_out_by_opponent_attack_this_turn: bool,
     pub(crate) knocked_out_by_opponent_attack_last_turn: bool,
+    pub stadium_used_this_turn: bool,
     // Maps turn to a vector of effects (cards) for that turn. Using BTreeMap to keep State hashable.
     turn_effects: BTreeMap<u8, Vec<TurnEffect>>,
 }
@@ -78,6 +79,7 @@ impl State {
 
             knocked_out_by_opponent_attack_this_turn: false,
             knocked_out_by_opponent_attack_last_turn: false,
+            stadium_used_this_turn: false,
             turn_effects: BTreeMap::new(),
         }
     }
@@ -276,6 +278,7 @@ impl State {
 
         self.has_played_support = false;
         self.has_retreated = false;
+        self.stadium_used_this_turn = false;
     }
 
     pub(crate) fn apply_passive_status_cures(&mut self) {
@@ -541,6 +544,7 @@ impl State {
             self.discard_piles[player].push(old_stadium);
         }
         self.stadium_in_play = Some(stadium);
+        self.stadium_used_this_turn = false;
     }
 
     /// Get the Stadium card currently in play

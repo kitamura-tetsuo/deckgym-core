@@ -57,6 +57,7 @@ pub fn forecast_action(state: &State, action: &Action) -> (Probabilities, Mutati
         | SimpleAction::DiscardFossil { .. }
         | SimpleAction::ReturnPokemonToHand { .. }
         | SimpleAction::Noop => forecast_deterministic_action(),
+        SimpleAction::UseStadium => forecast_use_stadium(action.actor, state),
         SimpleAction::UseAbility { in_play_idx } => forecast_ability(state, action, *in_play_idx),
         SimpleAction::Attack(index) => forecast_attack(action.actor, state, *index),
         SimpleAction::UseOpponentAttack(index) => {
@@ -221,6 +222,20 @@ fn apply_deterministic_action(state: &mut State, action: &Action) {
         SimpleAction::Noop => {}
         _ => panic!("Deterministic Action expected"),
     }
+}
+
+fn forecast_use_stadium(actor: usize, state: &State) -> (Probabilities, Mutations) {
+    forecast_trainer_action(
+        actor,
+        state,
+        state
+            .get_stadium()
+            .and_then(|c| match c {
+                Card::Trainer(t) => Some(t),
+                _ => None,
+            })
+            .expect("Stadium should be in play to use it"),
+    )
 }
 
 fn apply_attach_energy(
