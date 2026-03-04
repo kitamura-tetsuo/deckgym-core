@@ -117,3 +117,57 @@ fn test_mesagoza_effect_tails() {
     assert!(state.stadium_used_this_turn);
     assert!(!state.hands[0].iter().any(|c| c.get_id() == pikachu.get_id()));
 }
+
+#[test]
+fn test_mesagoza_comprehensive() {
+    let mut state = State::new(&Deck::default(), &Deck::default());
+    let mesagoza = get_card_by_enum(CardId::B2a093Mesagoza);
+    let pikachu = get_card_by_enum(CardId::A1094Pikachu);
+    let bulbasaur = get_card_by_enum(CardId::A1001Bulbasaur);
+    
+    // Clear hands and decks to be sure
+    state.hands[0].clear();
+    state.decks[0].cards.clear();
+
+    state.decks[0].cards.push(pikachu.clone());
+    state.decks[0].cards.push(bulbasaur.clone());
+    state.set_stadium(mesagoza, 0);
+
+    let action = Action {
+        actor: 0,
+        action: SimpleAction::UseStadium,
+        is_stack: false,
+    };
+
+    let mut found_pikachu = false;
+    let mut found_bulbasaur = false;
+    let mut found_tails = false;
+
+    // Run samples to cover all outcomes (Tails 50%, Pikachu 25%, Bulbasaur 25%)
+    for seed in 0..100 {
+        let mut test_state = state.clone();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+        deckgym::actions::apply_action(&mut rng, &mut test_state, &action);
+        
+        assert!(test_state.stadium_used_this_turn);
+        
+        let has_pikachu = test_state.hands[0].iter().any(|c| c.get_id() == pikachu.get_id());
+        let has_bulbasaur = test_state.hands[0].iter().any(|c| c.get_id() == bulbasaur.get_id());
+        
+        if has_pikachu {
+            found_pikachu = true;
+        } else if has_bulbasaur {
+            found_bulbasaur = true;
+        } else {
+            found_tails = true;
+        }
+
+        if found_pikachu && found_bulbasaur && found_tails {
+            break;
+        }
+    }
+
+    assert!(found_pikachu, "Should have found Pikachu at least once");
+    assert!(found_bulbasaur, "Should have found Bulbasaur at least once");
+    assert!(found_tails, "Should have got Tails at least once");
+}
