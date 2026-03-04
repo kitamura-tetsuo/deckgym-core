@@ -62,7 +62,10 @@ pub static EFFECT_MECHANIC_MAP: LazyLock<HashMap<&'static str, Mechanic>> = Lazy
         },
     );
     // map.insert("Discard 2 [R] Energy from this Pokémon. This attack does 80 damage to 1 of your opponent's Pokémon.", todo_implementation);
-    map.insert("Discard 2 cards from your hand. If you can't discard 2 cards, this attack does nothing.", Mechanic::DiscardHandCard { count: 2 });
+    map.insert(
+        "Discard 2 cards from your hand. If you can't discard 2 cards, this attack does nothing.",
+        Mechanic::DiscardHandCard { count: 2 },
+    );
     // map.insert("Discard 2 random Energy from this Pokémon.", todo_implementation);
     map.insert("Discard 3 [W] Energy from this Pokémon. This attack also does 20 damage to each of your opponent's Benched Pokémon.", Mechanic::PalkiaExDimensionalStorm);
     map.insert(
@@ -1473,7 +1476,12 @@ pub static EFFECT_MECHANIC_MAP: LazyLock<HashMap<&'static str, Mechanic>> = Lazy
     // New Mechanics from B2a
     // map.insert("1 of your opponent's Pokémon is chosen at random for each [M] Energy attached to this Pokémon. For each time a Pokémon was chosen, do 40 damage to it.", todo_implementation);
     // map.insert("Choose a spot from among your opponent's Active Spot and Bench. At the end of your opponent's next turn, do 70 damage to the Pokémon in the spot you chose.", todo_implementation);
-    // map.insert("Discard 2 [F] Energy from this Pokémon.", todo_implementation);
+    map.insert(
+        "Discard 2 [F] Energy from this Pokémon.",
+        Mechanic::SelfDiscardEnergy {
+            energies: vec![EnergyType::Fighting, EnergyType::Fighting],
+        },
+    );
     // map.insert("Discard all [W] Energy from this Pokémon. This attack does 130 damage to 1 of your opponent's Pokémon.", todo_implementation);
     // map.insert("During your next turn, this Pokémon can't use Gigaton Hammer.", todo_implementation);
     // map.insert("During your opponent's next turn, attacks used by the Defending Pokémon cost 2 [C] more.", todo_implementation);

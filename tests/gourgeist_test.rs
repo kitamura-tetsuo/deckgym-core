@@ -2,8 +2,8 @@ use deckgym::{
     actions::{apply_action, SimpleAction},
     card_ids::CardId,
     database::get_card_by_enum,
-    hooks::to_playable_card,
     generate_possible_actions,
+    hooks::to_playable_card,
     models::EnergyType,
     State,
 };
@@ -27,22 +27,31 @@ fn test_gourgeist_soul_shot_discards_and_deals_damage() {
     state.hands_visibility[0].push(true);
 
     let mut rng = rand::rngs::StdRng::seed_from_u64(42);
-    
+
     // Check possible actions
     let (_, actions) = generate_possible_actions(&state);
-    let attack_action = actions.iter().find(|a| matches!(a.action, SimpleAction::Attack(_))).expect("Should have attack action");
-    
+    let attack_action = actions
+        .iter()
+        .find(|a| matches!(a.action, SimpleAction::Attack(_)))
+        .expect("Should have attack action");
+
     apply_action(&mut rng, &mut state, attack_action);
 
     // After attack, it should have queued a discard action because Soul Shot has effect
     let (_, actions) = generate_possible_actions(&state);
-    let discard_action = actions.iter().find(|a| matches!(a.action, SimpleAction::DiscardOwnCard { .. })).expect("Should have discard action");
-    
+    let discard_action = actions
+        .iter()
+        .find(|a| matches!(a.action, SimpleAction::DiscardOwnCard { .. }))
+        .expect("Should have discard action");
+
     apply_action(&mut rng, &mut state, discard_action);
 
     // Verify damage dealt (Soul Shot does 70 damage)
     // Ivysaur has 90 HP
-    assert_eq!(state.in_play_pokemon[1][0].as_ref().unwrap().remaining_hp, 90 - 70);
+    assert_eq!(
+        state.in_play_pokemon[1][0].as_ref().unwrap().remaining_hp,
+        90 - 70
+    );
     // Verify card discarded
     assert!(state.hands[0].is_empty());
     assert_eq!(state.discard_piles[0].len(), 1);
@@ -64,10 +73,12 @@ fn test_gourgeist_soul_shot_fails_if_hand_empty() {
     // Hand is empty
 
     let mut rng = rand::rngs::StdRng::seed_from_u64(42);
-    
+
     let (_, actions) = generate_possible_actions(&state);
-    let attack_action = actions.iter().find(|a| matches!(a.action, SimpleAction::Attack(_)));
-    
+    let attack_action = actions
+        .iter()
+        .find(|a| matches!(a.action, SimpleAction::Attack(_)));
+
     // The attack requires a discard, so since hand is empty, it should not be generated as a choice
     assert!(attack_action.is_none());
 }

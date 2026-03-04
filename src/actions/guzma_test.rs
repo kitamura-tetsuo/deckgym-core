@@ -1,13 +1,12 @@
-use rand::SeedableRng;
+use crate::move_generation::generate_possible_trainer_actions;
 use crate::{
     actions::{apply_action, Action, SimpleAction},
     card_ids::CardId,
     database::get_card_by_enum,
     hooks::to_playable_card,
-
     State,
 };
-use crate::move_generation::generate_possible_trainer_actions;
+use rand::SeedableRng;
 
 #[test]
 fn test_guzma_discards_multiple_tools() {
@@ -28,14 +27,20 @@ fn test_guzma_discards_multiple_tools() {
 
     // Player 0 has Guzma in hand
     let guzma_card_enum = get_card_by_enum(CardId::A3151Guzma);
-    let guzma_card = if let crate::models::Card::Trainer(tc) = &guzma_card_enum { tc.clone() } else { panic!("Guzma should be a trainer card") };
+    let guzma_card = if let crate::models::Card::Trainer(tc) = &guzma_card_enum {
+        tc.clone()
+    } else {
+        panic!("Guzma should be a trainer card")
+    };
     state.hands[0].push(guzma_card_enum.clone());
     state.hands_visibility[0].push(true);
 
     // Act: Play Guzma
     let action = Action {
         actor: 0,
-        action: SimpleAction::Play { trainer_card: guzma_card.clone() },
+        action: SimpleAction::Play {
+            trainer_card: guzma_card.clone(),
+        },
         is_stack: false,
     };
 
@@ -43,8 +48,16 @@ fn test_guzma_discards_multiple_tools() {
     apply_action(&mut rng, &mut state, &action);
 
     // Assert: Both tools should be gone
-    assert!(state.in_play_pokemon[1][0].as_ref().unwrap().attached_tool.is_none());
-    assert!(state.in_play_pokemon[1][1].as_ref().unwrap().attached_tool.is_none());
+    assert!(state.in_play_pokemon[1][0]
+        .as_ref()
+        .unwrap()
+        .attached_tool
+        .is_none());
+    assert!(state.in_play_pokemon[1][1]
+        .as_ref()
+        .unwrap()
+        .attached_tool
+        .is_none());
 }
 
 #[test]
@@ -59,11 +72,18 @@ fn test_guzma_cannot_be_played_without_tools() {
 
     // Player 0 has Guzma in hand
     let guzma_card_enum = get_card_by_enum(CardId::A3151Guzma);
-    let guzma_card = if let crate::models::Card::Trainer(tc) = &guzma_card_enum { tc.clone() } else { panic!("Guzma should be a trainer card") };
+    let guzma_card = if let crate::models::Card::Trainer(tc) = &guzma_card_enum {
+        tc.clone()
+    } else {
+        panic!("Guzma should be a trainer card")
+    };
 
     // Check move generation
     let actions = generate_possible_trainer_actions(&state, &guzma_card).unwrap();
-    
+
     // Should not be able to play Guzma
-    assert!(actions.is_empty(), "Guzma should not be playable if opponent has no tools");
+    assert!(
+        actions.is_empty(),
+        "Guzma should not be playable if opponent has no tools"
+    );
 }
