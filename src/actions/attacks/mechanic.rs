@@ -230,6 +230,11 @@ pub enum Mechanic {
         energy_type: EnergyType,
         damage_per: u32,
     },
+    ExtraDamageIfEnergyCountInPlay {
+        energy_type: EnergyType,
+        min_count: usize,
+        extra_damage: u32,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

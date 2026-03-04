@@ -562,6 +562,17 @@ fn forecast_effect_attack_by_mechanic(
             *energy_type,
             *damage_per,
         ),
+        Mechanic::ExtraDamageIfEnergyCountInPlay {
+            energy_type,
+            min_count,
+            extra_damage,
+        } => extra_damage_if_energy_count_in_play(
+            state,
+            attack.fixed_damage,
+            *energy_type,
+            *min_count,
+            *extra_damage,
+        ),
         _ => unreachable!("New variants only used for vectorization: {:?}", mechanic),
     }
 }
@@ -1699,6 +1710,32 @@ fn extra_damage_if_hurt(
     let target_active = state.get_active(target);
     if target_active.remaining_hp < target_active.total_hp {
         active_damage_doutcome(base + extra)
+    } else {
+        active_damage_doutcome(base)
+    }
+}
+
+/// Extra damage if the current player has at least `min_count` of `energy_type` in play
+/// (summed across all of their in-play Pokémon's attached energy).
+fn extra_damage_if_energy_count_in_play(
+    state: &State,
+    base: u32,
+    energy_type: EnergyType,
+    min_count: usize,
+    extra_damage: u32,
+) -> (Probabilities, Mutations) {
+    let total_energy: usize = state
+        .enumerate_in_play_pokemon(state.current_player)
+        .map(|(_, pokemon)| {
+            pokemon
+                .attached_energy
+                .iter()
+                .filter(|&&e| e == energy_type)
+                .count()
+        })
+        .sum();
+    if total_energy >= min_count {
+        active_damage_doutcome(base + extra_damage)
     } else {
         active_damage_doutcome(base)
     }
