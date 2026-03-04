@@ -34,7 +34,7 @@ pub struct State {
     pub move_generation_stack: Vec<(usize, Vec<SimpleAction>)>,
 
     // Core state
-    pub(crate) current_energy: Option<EnergyType>,
+    pub current_energy: Option<EnergyType>,
     pub(crate) next_energies: [Option<EnergyType>; 2],
     pub hands: [Vec<Card>; 2],
     pub hands_visibility: [Vec<bool>; 2],

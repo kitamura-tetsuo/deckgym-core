@@ -112,6 +112,7 @@ fn can_use_ability(state: &State, (in_play_index, card): (usize, &PlayedCard)) -
             unreachable!("Handled by AbilityMechanic")
         }
         AbilityId::A2a035RotomSpeedLink => false, // Passive ability
+        AbilityId::B2a036Baxcalibur => can_use_baxcalibur_ability(state, card),
     }
 }
 
@@ -229,4 +230,13 @@ fn can_use_klefki_dismantling_keys(state: &State, card: &PlayedCard, is_active: 
         && state.in_play_pokemon[opponent][0]
             .as_ref()
             .is_some_and(|p| p.has_tool_attached())
+}
+
+fn can_use_baxcalibur_ability(state: &State, card: &PlayedCard) -> bool {
+    if card.ability_used {
+        return false;
+    }
+    // "attach it to the [W] Pokémon in the Active Spot"
+    let active = state.get_active(state.current_player);
+    active.get_energy_type() == Some(EnergyType::Water)
 }

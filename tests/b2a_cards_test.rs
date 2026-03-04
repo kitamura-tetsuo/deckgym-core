@@ -231,3 +231,94 @@ fn test_houndstone_last_respects_non_psychic_not_counted() {
         "Opponent should have 100 HP remaining (150 - 50, no Psychic bonus)"
     );
 }
+
+/// Test Baxcalibur B2a 036 - Ice Maker
+/// Should allow attaching 1 Water energy from zone to active Water Pokemon once per turn.
+#[test]
+fn test_baxcalibur_ice_maker() {
+    let mut game = get_initialized_game(0);
+    let mut state = game.get_state_clone();
+    state.current_player = 0;
+
+    // Set up Baxcalibur on bench
+    state.in_play_pokemon[0][1] = Some(PlayedCard::from_id(CardId::B2a036Baxcalibur));
+
+    // Set up active Water Pokemon (Quaxly)
+    state.in_play_pokemon[0][0] = Some(PlayedCard::from_id(CardId::B2a022Quaxly));
+
+    // Ensure Energy Zone has Water energy
+    state.current_energy = Some(EnergyType::Water);
+
+    game.set_state(state);
+
+    // Verify ability IS selectable
+    let (_actor, valid_actions) = generate_possible_actions(game.state());
+    assert!(
+        valid_actions
+            .iter()
+            .any(|a| matches!(a.action, SimpleAction::UseAbility { in_play_idx: 1 })),
+        "Ice Maker should be selectable"
+    );
+
+    // Use the ability
+    let ability_action = Action {
+        actor: 0,
+        action: SimpleAction::UseAbility { in_play_idx: 1 },
+        is_stack: false,
+    };
+    game.apply_action(&ability_action);
+
+    let state = game.get_state_clone();
+
+    // Active Quaxly should have 1 Water energy
+    let active = state.get_active(0);
+    assert!(
+        active.attached_energy.contains(&EnergyType::Water),
+        "Active Pokemon should have 1 Water energy attached"
+    );
+
+    // Ability should now be used
+    let baxcalibur = state.in_play_pokemon[0][1].as_ref().unwrap();
+    assert!(baxcalibur.ability_used, "Ability should be marked as used");
+
+    // Verify ability is NOT selectable again
+    let (_actor, valid_actions) = generate_possible_actions(game.state());
+    assert!(
+        !valid_actions
+            .iter()
+            .any(|a| matches!(a.action, SimpleAction::UseAbility { in_play_idx: 1 })),
+        "Ice Maker should NOT be selectable again in the same turn"
+    );
+}
+
+/// Test Baxcalibur B2a 036 - Ice Maker
+/// Should NOT allow attachment if Active is not Water type.
+#[test]
+fn test_baxcalibur_ice_maker_wrong_type() {
+    let mut game = get_initialized_game(0);
+    let mut state = game.get_state_clone();
+    state.current_player = 0;
+
+    // Set up Baxcalibur on bench
+    state.in_play_pokemon[0][1] = Some(PlayedCard::from_id(CardId::B2a036Baxcalibur));
+
+    // Set up active Fire Pokemon (Charmander)
+    state.in_play_pokemon[0][0] = Some(PlayedCard::from_id(CardId::A1033Charmander));
+
+    // Ensure Energy Zone has Water energy
+    state.current_energy = Some(EnergyType::Water);
+
+    game.set_state(state.clone());
+
+    // Verify ability is NOT selectable
+    let (_actor, valid_actions) = generate_possible_actions(game.state());
+    assert!(
+        !valid_actions
+            .iter()
+            .any(|a| matches!(a.action, SimpleAction::UseAbility { in_play_idx: 1 })),
+        "Ice Maker should NOT be selectable when Active is not Water type"
+    );
+
+    // Manually force use and check if it fails (not selectable means it shouldn't be valid, but let's check the logic)
+    // In our implementation, can_use_ability checks for type.
+}

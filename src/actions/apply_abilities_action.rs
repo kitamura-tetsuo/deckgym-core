@@ -129,6 +129,7 @@ pub(crate) fn forecast_ability(
             unreachable!("Handled by AbilityMechanic")
         }
         AbilityId::A2a035RotomSpeedLink => panic!("Speed Link is a passive ability"),
+        AbilityId::B2a036Baxcalibur => doutcome(baxcalibur_ability),
     }
 }
 
@@ -491,4 +492,10 @@ fn klefki_dismantling_keys(_: &mut StdRng, state: &mut State, action: &Action) {
 
     // Discard Klefki itself from play
     state.discard_from_play(acting_player, klefki_idx);
+}
+
+fn baxcalibur_ability(_: &mut StdRng, state: &mut State, action: &Action) {
+    // Once during your turn, you may take a [W] Energy from your Energy Zone and attach it to the [W] Pokémon in the Active Spot.
+    debug!("Baxcalibur's Ice Maker: Attaching 1 Water Energy to active Water Pokemon");
+    state.attach_energy_from_zone(action.actor, 0, EnergyType::Water, 1, false);
 }

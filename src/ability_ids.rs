@@ -60,6 +60,7 @@ pub enum AbilityId {
     A4a032MisdreavusInfiltratingInspection,
     A2a035RotomSpeedLink,
     B1120KlefkiDismantlingKeys,
+    B2a036Baxcalibur,
 }
 
 // Create a static HashMap for fast (pokemon, index) lookup
@@ -228,6 +229,9 @@ lazy_static::lazy_static! {
         m.insert("B1a 072", AbilityId::B1a034ReuniclusInfiniteIncrease);  // Rare variant
         m.insert("B1a 101", AbilityId::A3122SolgaleoExRisingRoad);
         m.insert("B1a 102", AbilityId::B1172AegislashCursedMetal);
+
+        // B2a
+        m.insert("B2a 036", AbilityId::B2a036Baxcalibur);
         // P-A
 
         m.insert("P-A 037", AbilityId::PA037CresseliaExLunarPlumage);
