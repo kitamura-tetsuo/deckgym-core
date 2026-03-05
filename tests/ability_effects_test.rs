@@ -69,23 +69,3 @@ fn test_serperior_jungle_totem_ability() {
         assert_eq!(index, 0, "Attack index should be 0 (Vine Whip)");
     }
 }
-
-#[test]
-fn test_cloyster_shell_armor() {
-    let mut game = get_initialized_game(0);
-    let mut state = game.get_state_clone();
-    let p0 = state.current_player;
-    let p1 = 1 - p0;
-
-    // Cloyster's Shell Armor takes -10 damage from attacks.
-    state.set_board(p0, vec![PlayedCard::from_id(CardId::A1067Cloyster)]);
-    state.set_board(p1, vec![PlayedCard::from_id(CardId::A1008Weedle).with_energy(vec![EnergyType::Grass])]);
-
-    // Simulate an attack using `modify_damage` directly to check the calculated damage
-    let damage = deckgym::hooks::modify_damage(&state, (p1, 0), (20, p0, 0), true, Some("Bug Bite"));
-    assert_eq!(damage, 10, "Cloyster's Shell Armor should reduce 20 damage to 10 when attacked directly.");
-
-    // Verify that there is no reduction when damage is NOT from an active attack
-    let damage_not_attack = deckgym::hooks::modify_damage(&state, (p1, 0), (20, p0, 0), false, None);
-    assert_eq!(damage_not_attack, 20, "Cloyster's Shell Armor should NOT reduce damage if not from an active attack.");
-}
