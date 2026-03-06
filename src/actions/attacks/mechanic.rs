@@ -28,6 +28,9 @@ pub enum Mechanic {
         conditions: Vec<StatusCondition>,
         target_opponent: bool,
     },
+    InflictStatusConditionsBothActive {
+        conditions: Vec<StatusCondition>,
+    },
     ChanceStatusAttack {
         condition: StatusCondition,
     },
