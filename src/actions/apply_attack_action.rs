@@ -346,6 +346,9 @@ fn forecast_effect_attack_by_mechanic(
                 damage_and_self_multiple_status_attack(attack.fixed_damage, conditions.clone())
             }
         }
+        Mechanic::InflictStatusConditionsBothActive { conditions } => {
+            damage_and_both_status_attack(attack.fixed_damage, conditions.clone(), attack)
+        }
         Mechanic::ChanceStatusAttack { condition } => {
             damage_chance_status_attack(attack.fixed_damage, 0.5, *condition)
         }
@@ -1426,6 +1429,26 @@ fn damage_and_self_multiple_status_attack(
         let active = state.get_active_mut(action.actor);
         for status in &statuses {
             active.apply_status_condition(*status);
+        }
+    })
+}
+
+/// For attacks that deal damage to opponent and apply status effects to both active Pokémon
+fn damage_and_both_status_attack(
+    damage: u32,
+    statuses: Vec<StatusCondition>,
+    _attack: &Attack,
+) -> (Probabilities, Mutations) {
+    active_damage_effect_doutcome(damage, move |_, state, action| {
+        let active = state.get_active_mut(action.actor);
+        for status in &statuses {
+            active.apply_status_condition(*status);
+        }
+
+        let opponent = (action.actor + 1) % 2;
+        let opponent_active = state.get_active_mut(opponent);
+        for status in &statuses {
+            opponent_active.apply_status_condition(*status);
         }
     })
 }
