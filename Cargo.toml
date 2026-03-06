@@ -40,6 +40,13 @@ csv-export = ["csv"]
 name = "deckgym"
 crate-type = ["cdylib", "rlib"]
 
+[profile.release]
+opt-level = "z"
+codegen-units = 1
+lto = "off"
+debug = false
+panic = "abort"
+
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }
 
