@@ -14,7 +14,9 @@ fn test_mesagoza_action_generation() {
 
     // No action without stadium
     let (_, actions) = deckgym::move_generation::generate_possible_actions(&state);
-    assert!(!actions.iter().any(|a| matches!(a.action, SimpleAction::UseStadium)));
+    assert!(!actions
+        .iter()
+        .any(|a| matches!(a.action, SimpleAction::UseStadium)));
 
     // Set Mesagoza
     state.set_stadium(mesagoza, 0);
@@ -23,14 +25,21 @@ fn test_mesagoza_action_generation() {
     let (current_player, dbg_actions) = deckgym::move_generation::generate_possible_actions(&state);
     println!("Current Player: {}", current_player);
     println!("Actions: {:?}", dbg_actions);
-    assert!(dbg_actions.iter().any(|a| matches!(a.action, SimpleAction::UseStadium)), "Action UseStadium should be present after setting stadium");
+    assert!(
+        dbg_actions
+            .iter()
+            .any(|a| matches!(a.action, SimpleAction::UseStadium)),
+        "Action UseStadium should be present after setting stadium"
+    );
 
     // Use it
     state.stadium_used_this_turn = true;
 
     // Action should be gone
     let (_, actions_after) = deckgym::move_generation::generate_possible_actions(&state);
-    assert!(!actions_after.iter().any(|a| matches!(a.action, SimpleAction::UseStadium)));
+    assert!(!actions_after
+        .iter()
+        .any(|a| matches!(a.action, SimpleAction::UseStadium)));
 }
 
 #[test]
@@ -51,7 +60,7 @@ fn test_mesagoza_effect_heads() {
     let mut state = State::new(&Deck::default(), &Deck::default());
     let mesagoza = get_card_by_enum(CardId::B2a093Mesagoza);
     let pikachu = get_card_by_enum(CardId::A1094Pikachu);
-    
+
     // Add Pikachu to deck
     state.decks[0].cards.push(pikachu.clone());
     state.set_stadium(mesagoza, 0);
@@ -68,7 +77,11 @@ fn test_mesagoza_effect_heads() {
         let mut test_state = state.clone();
         let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
         deckgym::actions::apply_action(&mut rng, &mut test_state, &action);
-        if test_state.stadium_used_this_turn && test_state.hands[0].iter().any(|c| c.get_id() == pikachu.get_id()) {
+        if test_state.stadium_used_this_turn
+            && test_state.hands[0]
+                .iter()
+                .any(|c| c.get_id() == pikachu.get_id())
+        {
             heads_seed = Some(seed);
             break;
         }
@@ -79,7 +92,9 @@ fn test_mesagoza_effect_heads() {
     deckgym::actions::apply_action(&mut rng, &mut state, &action);
 
     assert!(state.stadium_used_this_turn);
-    assert!(state.hands[0].iter().any(|c| c.get_id() == pikachu.get_id()));
+    assert!(state.hands[0]
+        .iter()
+        .any(|c| c.get_id() == pikachu.get_id()));
 }
 
 #[test]
@@ -87,7 +102,7 @@ fn test_mesagoza_effect_tails() {
     let mut state = State::new(&Deck::default(), &Deck::default());
     let mesagoza = get_card_by_enum(CardId::B2a093Mesagoza);
     let pikachu = get_card_by_enum(CardId::A1094Pikachu);
-    
+
     state.decks[0].cards.push(pikachu.clone());
     state.set_stadium(mesagoza, 0);
 
@@ -103,7 +118,11 @@ fn test_mesagoza_effect_tails() {
         let mut test_state = state.clone();
         let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
         deckgym::actions::apply_action(&mut rng, &mut test_state, &action);
-        if test_state.stadium_used_this_turn && !test_state.hands[0].iter().any(|c| c.get_id() == pikachu.get_id()) {
+        if test_state.stadium_used_this_turn
+            && !test_state.hands[0]
+                .iter()
+                .any(|c| c.get_id() == pikachu.get_id())
+        {
             tails_seed = Some(seed);
             break;
         }
@@ -114,7 +133,9 @@ fn test_mesagoza_effect_tails() {
     deckgym::actions::apply_action(&mut rng, &mut state, &action);
 
     assert!(state.stadium_used_this_turn);
-    assert!(!state.hands[0].iter().any(|c| c.get_id() == pikachu.get_id()));
+    assert!(!state.hands[0]
+        .iter()
+        .any(|c| c.get_id() == pikachu.get_id()));
 }
 
 #[test]
@@ -123,7 +144,7 @@ fn test_mesagoza_comprehensive() {
     let mesagoza = get_card_by_enum(CardId::B2a093Mesagoza);
     let pikachu = get_card_by_enum(CardId::A1094Pikachu);
     let bulbasaur = get_card_by_enum(CardId::A1001Bulbasaur);
-    
+
     // Clear hands and decks to be sure
     state.hands[0].clear();
     state.decks[0].cards.clear();
@@ -147,12 +168,16 @@ fn test_mesagoza_comprehensive() {
         let mut test_state = state.clone();
         let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
         deckgym::actions::apply_action(&mut rng, &mut test_state, &action);
-        
+
         assert!(test_state.stadium_used_this_turn);
-        
-        let has_pikachu = test_state.hands[0].iter().any(|c| c.get_id() == pikachu.get_id());
-        let has_bulbasaur = test_state.hands[0].iter().any(|c| c.get_id() == bulbasaur.get_id());
-        
+
+        let has_pikachu = test_state.hands[0]
+            .iter()
+            .any(|c| c.get_id() == pikachu.get_id());
+        let has_bulbasaur = test_state.hands[0]
+            .iter()
+            .any(|c| c.get_id() == bulbasaur.get_id());
+
         if has_pikachu {
             found_pikachu = true;
         } else if has_bulbasaur {
@@ -192,7 +217,10 @@ fn test_play_mesagoza_from_hand() {
     let mut rng = StdRng::seed_from_u64(42);
     apply_action(&mut rng, &mut state, &action);
 
-    assert!(state.get_stadium().is_some(), "Stadium should be set after playing Mesagoza");
+    assert!(
+        state.get_stadium().is_some(),
+        "Stadium should be set after playing Mesagoza"
+    );
     assert_eq!(
         state.get_stadium().unwrap().get_id(),
         "B2a 093",
