@@ -24,6 +24,9 @@ pub enum Mechanic {
         name: String,
     },
     SearchToHandSupporterCard,
+    InflictStatusConditionsBoth {
+        conditions: Vec<StatusCondition>,
+    },
     InflictStatusConditions {
         conditions: Vec<StatusCondition>,
         target_opponent: bool,
