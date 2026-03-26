@@ -78,6 +78,9 @@ impl State {
             .attached_energy
             .extend(std::iter::repeat_n(energy, amount as usize));
         for _ in 0..amount {
+            if self.in_play_pokemon[actor][in_play_idx].is_none() {
+                break;
+            }
             self.on_attach_energy(actor, in_play_idx, energy, from_zone, is_turn_energy);
         }
         true
@@ -92,10 +95,11 @@ impl State {
         is_turn_energy: bool,
     ) {
         let ability_id = {
-            let pokemon = self.in_play_pokemon[actor][in_play_idx]
-                .as_ref()
-                .expect("Pokemon should be there if attaching energy to it");
-            AbilityId::from_pokemon_id(&pokemon.card.get_id()[..])
+            if let Some(pokemon) = self.in_play_pokemon[actor][in_play_idx].as_ref() {
+                AbilityId::from_pokemon_id(&pokemon.card.get_id()[..])
+            } else {
+                return;
+            }
         };
 
         if from_zone {
