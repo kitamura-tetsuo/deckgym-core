@@ -1090,7 +1090,10 @@ mod tests {
         state.in_play_pokemon[1][0] = Some(played_defender);
 
         let damage = modify_damage(&state, (0, 0), (30, 1, 0), true, None);
-        assert_eq!(damage, 20, "Cloyster's Shell Armor should reduce damage by exactly 10");
+        assert_eq!(
+            damage, 20,
+            "Cloyster's Shell Armor should reduce damage by exactly 10"
+        );
     }
 
     #[test]
