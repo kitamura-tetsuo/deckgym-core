@@ -1079,6 +1079,21 @@ mod tests {
     }
 
     #[test]
+    fn test_cloyster_shell_armor() {
+        let mut state = State::default();
+        let attacker = get_card_by_enum(CardId::A1033Charmander);
+        let played_attacker = to_playable_card(&attacker, false);
+        state.in_play_pokemon[0][0] = Some(played_attacker);
+
+        let defender = get_card_by_enum(CardId::A1067Cloyster);
+        let played_defender = to_playable_card(&defender, false);
+        state.in_play_pokemon[1][0] = Some(played_defender);
+
+        let damage = modify_damage(&state, (0, 0), (30, 1, 0), true, None);
+        assert_eq!(damage, 20, "Cloyster's Shell Armor should reduce damage by exactly 10");
+    }
+
+    #[test]
     fn test_cosmoem_reduced_damage() {
         // Arrange
         let mut state = State::default();
