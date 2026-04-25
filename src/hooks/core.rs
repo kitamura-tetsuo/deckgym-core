@@ -718,20 +718,19 @@ fn calculate_type_boost_bonus(
         if let Some(ability_id) = AbilityId::from_pokemon_id(&pokemon.get_id()) {
             match ability_id {
                 // Lucario's Fighting Coach: +20 damage to Fighting-type attacks
-                AbilityId::A2092LucarioFightingCoach => {
-                    if attacker_energy_type == EnergyType::Fighting {
-                        debug!("Fighting Coach (Lucario): Increasing damage by 20");
-                        bonus += 20;
-                    }
+                AbilityId::A2092LucarioFightingCoach
+                    if attacker_energy_type == EnergyType::Fighting =>
+                {
+                    debug!("Fighting Coach (Lucario): Increasing damage by 20");
+                    bonus += 20;
                 }
                 // Aegislash's Cursed Metal: +30 damage to Psychic and Metal-type attacks
-                AbilityId::B1172AegislashCursedMetal => {
-                    if attacker_energy_type == EnergyType::Psychic
-                        || attacker_energy_type == EnergyType::Metal
-                    {
-                        debug!("Cursed Metal (Aegislash): Increasing damage by 30");
-                        bonus += 30;
-                    }
+                AbilityId::B1172AegislashCursedMetal
+                    if (attacker_energy_type == EnergyType::Psychic
+                        || attacker_energy_type == EnergyType::Metal) =>
+                {
+                    debug!("Cursed Metal (Aegislash): Increasing damage by 30");
+                    bonus += 30;
                 }
                 _ => {}
             }
@@ -1075,6 +1074,27 @@ mod tests {
             damage_with_red_vs_ex,
             base_damage_ex + 20,
             "Red should add 20 damage against Pokémon ex"
+        );
+    }
+
+    #[test]
+    fn test_cloyster_damage_reduction() {
+        // Arrange
+        let mut state = State::default();
+        let attacker = get_card_by_enum(CardId::A3122SolgaleoEx);
+        let played_attacker = to_playable_card(&attacker, false);
+        state.in_play_pokemon[0][0] = Some(played_attacker);
+        let defender = get_card_by_enum(CardId::A1067Cloyster);
+        let played_defender = to_playable_card(&defender, false);
+        state.in_play_pokemon[1][0] = Some(played_defender);
+
+        // Act
+        let damage_with_shell_armor = modify_damage(&state, (0, 0), (120, 1, 0), true, None);
+
+        // Assert
+        assert_eq!(
+            damage_with_shell_armor, 110,
+            "Cloyster's Shell Armor should reduce damage by exactly 10"
         );
     }
 
