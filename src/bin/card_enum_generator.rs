@@ -120,6 +120,7 @@ fn print_database(card_map: &IndexMap<String, Card>) {
     );
     println!("}};");
     println!();
+    println!("#[inline(never)]");
     println!("pub fn get_card_by_enum(id: CardId) -> Card {{");
     println!("    match id {{");
     for (enum_name, card) in card_map.iter() {

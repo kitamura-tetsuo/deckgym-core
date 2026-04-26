@@ -5,6 +5,7 @@ use crate::{
     models::{Ability, Attack, Card, EnergyType, PokemonCard, TrainerCard, TrainerType},
 };
 
+#[inline(never)]
 pub fn get_card_by_enum(id: CardId) -> Card {
     match id {
         CardId::A1001Bulbasaur => Card::Pokemon(PokemonCard {
