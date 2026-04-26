@@ -671,6 +671,22 @@ fn direct_damage_per_energy_on_target(
     })
 }
 
+fn damage_and_both_multiple_status_attack(
+    damage: u32,
+    statuses: Vec<StatusCondition>,
+) -> (Probabilities, Mutations) {
+    active_damage_effect_doutcome(damage, move |_, state, action| {
+        let active = state.get_active_mut(action.actor);
+        for status in &statuses {
+            active.apply_status_condition(*status);
+        }
+        let opponent_active = state.get_active_mut(1 - action.actor);
+        for status in &statuses {
+            opponent_active.apply_status_condition(*status);
+        }
+    })
+}
+
 fn use_opponent_active_attack(_state: &State) -> (Probabilities, Mutations) {
     active_damage_effect_doutcome(0, |_, state, action| {
         let opponent = (action.actor + 1) % 2;
@@ -2682,20 +2698,4 @@ mod test {
         // Verify Oricorio did NOT take damage
         assert_eq!(state.get_active(1).remaining_hp, 70);
     }
-}
-
-fn damage_and_both_multiple_status_attack(
-    damage: u32,
-    statuses: Vec<StatusCondition>,
-) -> (Probabilities, Mutations) {
-    active_damage_effect_doutcome(damage, move |_, state, action| {
-        let active = state.get_active_mut(action.actor);
-        for status in &statuses {
-            active.apply_status_condition(*status);
-        }
-        let opponent_active = state.get_active_mut(1 - action.actor);
-        for status in &statuses {
-            opponent_active.apply_status_condition(*status);
-        }
-    })
 }
