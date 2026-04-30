@@ -9,7 +9,8 @@ use std::collections::HashMap;
 
 use crate::{
     actions::{
-        get_attack_mechanic, get_enhanced_ability_mechanic, get_simulator_ability_mechanic, Action, SimpleAction, EFFECT_MECHANIC_MAP,
+        get_attack_mechanic, get_enhanced_ability_mechanic, get_simulator_ability_mechanic, Action,
+        SimpleAction, EFFECT_MECHANIC_MAP,
     },
     card_ids::CardId,
     deck::Deck,
@@ -1315,12 +1316,11 @@ impl PyBatchedSimulator {
 
         // Get default decks from cache if not specified
         let cached_paths: Vec<String> = self.deck_cache.keys().cloned().collect();
-        if (deck_ids_1.is_none() || deck_ids_2.is_none())
-            && cached_paths.len() < 2 {
-                return Err(PyValueError::new_err(
-                    "Not enough decks in cache to reset without explicit deck_ids",
-                ));
-            }
+        if (deck_ids_1.is_none() || deck_ids_2.is_none()) && cached_paths.len() < 2 {
+            return Err(PyValueError::new_err(
+                "Not enough decks in cache to reset without explicit deck_ids",
+            ));
+        }
 
         for i in 0..self.batch_size {
             let deck_1_path = if let Some(ref ids) = deck_ids_1 {
