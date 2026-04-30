@@ -52,7 +52,7 @@ fn test_mesagoza_reset_on_new_stadium() {
 
     // Played a new Mesagoza (replaces old)
     state.set_stadium(mesagoza, 0);
-    assert_eq!(state.stadium_used_this_turn, false);
+    assert!(!state.stadium_used_this_turn);
 }
 
 #[test]
