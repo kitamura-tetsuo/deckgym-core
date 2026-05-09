@@ -72,7 +72,7 @@ fn test_gourgeist_soul_shot_fails_if_hand_empty() {
     state.in_play_pokemon[1][0] = Some(to_playable_card(&opponent_active, false));
     // Hand is empty
 
-    let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+    let _rng = rand::rngs::StdRng::seed_from_u64(42);
 
     let (_, actions) = generate_possible_actions(&state);
     let attack_action = actions
