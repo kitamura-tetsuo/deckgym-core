@@ -138,10 +138,7 @@ pub static EFFECT_ABILITY_MECHANIC_MAP: LazyLock<HashMap<&'static str, AbilityMe
         // map.insert("This Pokémon can't be Asleep.", todo_implementation);
         // map.insert("This Pokémon can't be affected by any Special Conditions.", todo_implementation);
         // map.insert("This Pokémon gets +30 HP for each [P] Energy attached to it.", todo_implementation);
-        map.insert(
-            "This Pokémon takes -10 damage from attacks.",
-            AbilityMechanic::ReduceDamageFromAttacks { amount: 10 },
-        );
+        // map.insert("This Pokémon takes -10 damage from attacks.", todo_implementation);
         // map.insert("This Pokémon takes -20 damage from attacks from [R] or [W] Pokémon.", todo_implementation);
         map.insert(
             "This Pokémon takes -20 damage from attacks.",
