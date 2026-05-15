@@ -1260,4 +1260,24 @@ mod tests {
             "Aerodactyl should not be able to evolve from Helix Fossil"
         );
     }
+
+    #[test]
+    fn test_cloyster_shell_armor() {
+        let mut state = State::default();
+        let attacker = get_card_by_enum(CardId::A1001Bulbasaur);
+        let played_attacker = to_playable_card(&attacker, false);
+        state.in_play_pokemon[0][0] = Some(played_attacker);
+
+        let defender = get_card_by_enum(CardId::A1067Cloyster);
+        let played_defender = to_playable_card(&defender, false);
+        state.in_play_pokemon[1][0] = Some(played_defender);
+
+        // Bulbasaur's Vine Whip does 40 damage
+        let damage = modify_damage(&state, (0, 0), (40, 1, 0), true, None);
+
+        assert_eq!(
+            damage, 30,
+            "Cloyster's Shell Armor should reduce damage by exactly 10"
+        );
+    }
 }
