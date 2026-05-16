@@ -943,6 +943,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_shell_armor() {
+        let mut state = State::default();
+        let cloyster = to_playable_card(&get_card_by_enum(CardId::A1067Cloyster), false);
+        state.in_play_pokemon[0][0] = Some(cloyster);
+
+        let damage = modify_damage(&state, (0, 0), (50, 0, 0), true, None);
+        assert_eq!(damage, 40);
+        let damage = modify_damage(&state, (0, 0), (50, 0, 0), false, None); // Not from attack
+        assert_eq!(damage, 50);
+    }
+
+    #[test]
     fn test_contains_energy() {
         let state = State::default();
         let fire_card = get_card_by_enum(CardId::A1033Charmander);
