@@ -953,6 +953,27 @@ mod tests {
     }
 
     #[test]
+    fn test_ability_reduce_damage_from_attacks() {
+        let mut state = State::default();
+
+        let target_card = get_card_by_enum(CardId::A1067Cloyster);
+        let target_pokemon = to_playable_card(&target_card, false);
+        state.in_play_pokemon[0][0] = Some(target_pokemon);
+
+        let attacking_card = get_card_by_enum(CardId::A1033Charmander);
+        let attacking_pokemon = to_playable_card(&attacking_card, false);
+        state.in_play_pokemon[1][0] = Some(attacking_pokemon);
+
+        // Target Cloyster receives damage from Charmander's attack
+        // Expected base damage is 50. Expected reduced damage is 50 - 10 = 40.
+        let target_ref = (50, 0, 0);
+        let attacking_ref = (1, 0);
+
+        let damage = modify_damage(&state, attacking_ref, target_ref, true, Some("Attack"));
+        assert_eq!(damage, 40);
+    }
+
+    #[test]
     fn test_contains_energy_colorless() {
         let state = State::default();
         let fire_card = get_card_by_enum(CardId::A1033Charmander);
