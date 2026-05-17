@@ -718,20 +718,19 @@ fn calculate_type_boost_bonus(
         if let Some(ability_id) = AbilityId::from_pokemon_id(&pokemon.get_id()) {
             match ability_id {
                 // Lucario's Fighting Coach: +20 damage to Fighting-type attacks
-                AbilityId::A2092LucarioFightingCoach => {
-                    if attacker_energy_type == EnergyType::Fighting {
-                        debug!("Fighting Coach (Lucario): Increasing damage by 20");
-                        bonus += 20;
-                    }
+                AbilityId::A2092LucarioFightingCoach
+                    if attacker_energy_type == EnergyType::Fighting =>
+                {
+                    debug!("Fighting Coach (Lucario): Increasing damage by 20");
+                    bonus += 20;
                 }
                 // Aegislash's Cursed Metal: +30 damage to Psychic and Metal-type attacks
-                AbilityId::B1172AegislashCursedMetal => {
-                    if attacker_energy_type == EnergyType::Psychic
-                        || attacker_energy_type == EnergyType::Metal
-                    {
-                        debug!("Cursed Metal (Aegislash): Increasing damage by 30");
-                        bonus += 30;
-                    }
+                AbilityId::B1172AegislashCursedMetal
+                    if (attacker_energy_type == EnergyType::Psychic
+                        || attacker_energy_type == EnergyType::Metal) =>
+                {
+                    debug!("Cursed Metal (Aegislash): Increasing damage by 30");
+                    bonus += 30;
                 }
                 _ => {}
             }
@@ -950,6 +949,27 @@ mod tests {
         pokemon.attached_energy = vec![EnergyType::Fire, EnergyType::Fire, EnergyType::Fire];
         let cost = vec![EnergyType::Colorless, EnergyType::Fire];
         assert!(contains_energy(&pokemon, &cost, &state, 0));
+    }
+
+    #[test]
+    fn test_ability_reduce_damage_from_attacks() {
+        let mut state = State::default();
+
+        let target_card = get_card_by_enum(CardId::A1067Cloyster);
+        let target_pokemon = to_playable_card(&target_card, false);
+        state.in_play_pokemon[0][0] = Some(target_pokemon);
+
+        let attacking_card = get_card_by_enum(CardId::A1033Charmander);
+        let attacking_pokemon = to_playable_card(&attacking_card, false);
+        state.in_play_pokemon[1][0] = Some(attacking_pokemon);
+
+        // Target Cloyster receives damage from Charmander's attack
+        // Expected base damage is 50. Expected reduced damage is 50 - 10 = 40.
+        let target_ref = (50, 0, 0);
+        let attacking_ref = (1, 0);
+
+        let damage = modify_damage(&state, attacking_ref, target_ref, true, Some("Attack"));
+        assert_eq!(damage, 40);
     }
 
     #[test]
