@@ -1260,4 +1260,21 @@ mod tests {
             "Aerodactyl should not be able to evolve from Helix Fossil"
         );
     }
+
+    #[test]
+    fn test_ability_reduce_damage_from_attacks_10() {
+        let mut state = State::default();
+        let cloyster = to_playable_card(&get_card_by_enum(CardId::A1067Cloyster), false);
+        let attacker = to_playable_card(&get_card_by_enum(CardId::A1033Charmander), false);
+        state.in_play_pokemon[0][0] = Some(cloyster);
+        state.in_play_pokemon[1][0] = Some(attacker);
+
+        // modify_damage(&state, attacking_ref, target_ref, is_from_active_attack, attack_name)
+        let damage = modify_damage(&state, (1, 0), (30, 0, 0), true, None);
+
+        assert_eq!(
+            damage, 20,
+            "Damage should be reduced from 30 to 20 by Cloyster's Shell Armor"
+        );
+    }
 }
