@@ -718,20 +718,19 @@ fn calculate_type_boost_bonus(
         if let Some(ability_id) = AbilityId::from_pokemon_id(&pokemon.get_id()) {
             match ability_id {
                 // Lucario's Fighting Coach: +20 damage to Fighting-type attacks
-                AbilityId::A2092LucarioFightingCoach => {
-                    if attacker_energy_type == EnergyType::Fighting {
-                        debug!("Fighting Coach (Lucario): Increasing damage by 20");
-                        bonus += 20;
-                    }
+                AbilityId::A2092LucarioFightingCoach
+                    if attacker_energy_type == EnergyType::Fighting =>
+                {
+                    debug!("Fighting Coach (Lucario): Increasing damage by 20");
+                    bonus += 20;
                 }
                 // Aegislash's Cursed Metal: +30 damage to Psychic and Metal-type attacks
-                AbilityId::B1172AegislashCursedMetal => {
-                    if attacker_energy_type == EnergyType::Psychic
-                        || attacker_energy_type == EnergyType::Metal
-                    {
-                        debug!("Cursed Metal (Aegislash): Increasing damage by 30");
-                        bonus += 30;
-                    }
+                AbilityId::B1172AegislashCursedMetal
+                    if (attacker_energy_type == EnergyType::Psychic
+                        || attacker_energy_type == EnergyType::Metal) =>
+                {
+                    debug!("Cursed Metal (Aegislash): Increasing damage by 30");
+                    bonus += 30;
                 }
                 _ => {}
             }
@@ -1258,6 +1257,23 @@ mod tests {
         assert!(
             !can_evolve_into(&aerodactyl, &helix_fossil),
             "Aerodactyl should not be able to evolve from Helix Fossil"
+        );
+    }
+
+    #[test]
+    fn test_ability_reduce_damage_from_attacks_10() {
+        let mut state = State::default();
+        let cloyster = to_playable_card(&get_card_by_enum(CardId::A1067Cloyster), false);
+        let attacker = to_playable_card(&get_card_by_enum(CardId::A1033Charmander), false);
+        state.in_play_pokemon[0][0] = Some(cloyster);
+        state.in_play_pokemon[1][0] = Some(attacker);
+
+        // modify_damage(&state, attacking_ref, target_ref, is_from_active_attack, attack_name)
+        let damage = modify_damage(&state, (1, 0), (30, 0, 0), true, None);
+
+        assert_eq!(
+            damage, 20,
+            "Damage should be reduced from 30 to 20 by Cloyster's Shell Armor"
         );
     }
 }
