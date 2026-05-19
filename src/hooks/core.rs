@@ -1079,6 +1079,25 @@ mod tests {
     }
 
     #[test]
+    fn test_reduce_damage_from_attacks_10() {
+        // Arrange
+        let mut state = State::default();
+        let attacker = get_card_by_enum(CardId::A1001Bulbasaur); // 40 damage attack
+        let played_attacker = to_playable_card(&attacker, false);
+        state.in_play_pokemon[0][0] = Some(played_attacker);
+
+        let defender = get_card_by_enum(CardId::A1067Cloyster); // Ability: Takes -10 damage
+        let played_defender = to_playable_card(&defender, false);
+        state.in_play_pokemon[1][0] = Some(played_defender);
+
+        // Act
+        let damage = modify_damage(&state, (0, 0), (40, 1, 0), true, None);
+
+        // Assert
+        assert_eq!(damage, 30, "Cloyster's ability should reduce damage by 10");
+    }
+
+    #[test]
     fn test_cosmoem_reduced_damage() {
         // Arrange
         let mut state = State::default();
