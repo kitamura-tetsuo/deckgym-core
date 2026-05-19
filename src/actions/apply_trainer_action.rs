@@ -1306,7 +1306,7 @@ fn mesagoza_outcomes(acting_player: usize, state: &State) -> (Probabilities, Mut
     let (search_probs, search_mutations) =
         pokemon_search_outcomes(acting_player, state, false, "Mesagoza");
 
-    for (p, m) in search_probs.into_iter().zip(search_mutations.into_iter()) {
+    for (p, m) in search_probs.into_iter().zip(search_mutations) {
         probabilities.push(0.5 * p);
         outcomes.push(Box::new(move |rng, state, action| {
             debug!("Mesagoza: Heads! Finding a Pokémon.");
