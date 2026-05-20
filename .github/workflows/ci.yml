@@ -32,12 +32,16 @@ jobs:
 
       - name: Run tests
         run: cargo test
+        env:
+          RUST_MIN_STACK: 8388608
 
       - name: Build TUI with feature flag
         run: cargo build --bin tui --features tui
 
       - name: Run tests
         run: cargo test --features tui --bin tui
+        env:
+          RUST_MIN_STACK: 8388608
 
       - name: Run example 1
         run: cargo run simulate example_decks/venusaur-exeggutor.txt example_decks/weezing-arbok.txt --num 1000 -v
