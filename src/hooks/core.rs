@@ -1250,6 +1250,31 @@ mod tests {
     }
 
     #[test]
+    fn test_reduce_damage_from_attacks_ability() {
+        let mut state = State::default();
+        state.turn_count = 1;
+        state.current_player = 0;
+
+        let venusaurs_card = get_card_by_enum(CardId::A1004VenusaurEx);
+        let attacker = to_playable_card(&venusaurs_card, false);
+        state.in_play_pokemon[1][0] = Some(attacker);
+
+        let target_card = get_card_by_enum(CardId::A1067Cloyster);
+        let target = to_playable_card(&target_card, false);
+        state.in_play_pokemon[0][0] = Some(target);
+
+        state.turn_count = 2;
+        state.current_player = 1;
+
+        let damage = modify_damage(&state, (1, 0), (30, 0, 0), true, None);
+
+        assert_eq!(
+            damage, 20,
+            "Damage should be reduced from 30 to 20 by Cloyster's Shell Armor ability"
+        );
+    }
+
+    #[test]
     fn test_aerodactyl_cannot_evolve_from_wrong_fossil() {
         // Aerodactyl should NOT be able to evolve from Helix Fossil (only Old Amber)
         let aerodactyl = get_card_by_enum(CardId::A1210Aerodactyl);
