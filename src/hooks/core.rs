@@ -1264,8 +1264,8 @@ mod tests {
     #[test]
     fn test_reduce_damage_from_attacks() {
         let mut state = State::default();
-        let mut attacker = to_playable_card(&get_card_by_enum(CardId::A1001Bulbasaur), false);
-        let mut defender = to_playable_card(&get_card_by_enum(CardId::A1067Cloyster), false);
+        let attacker = to_playable_card(&get_card_by_enum(CardId::A1001Bulbasaur), false);
+        let defender = to_playable_card(&get_card_by_enum(CardId::A1067Cloyster), false);
 
         let attacking_player = 1;
         let defending_player = 0;
