@@ -1213,6 +1213,26 @@ mod tests {
     }
 
     #[test]
+    fn test_cloyster_reduced_damage() {
+        let mut state = State::default();
+
+        let attacker_card = get_card_by_enum(CardId::A1001Bulbasaur);
+        let attacker = to_playable_card(&attacker_card, false);
+        state.in_play_pokemon[1][0] = Some(attacker);
+
+        let cloyster_card = get_card_by_enum(CardId::A1067Cloyster);
+        let target = to_playable_card(&cloyster_card, false);
+        state.in_play_pokemon[0][0] = Some(target);
+
+        // Active to Active attack
+        let damage = modify_damage(&state, (1, 0), (30, 0, 0), true, None);
+        assert_eq!(
+            damage, 20,
+            "Damage should be reduced from 30 to 20 by Cloyster's Ability"
+        );
+    }
+
+    #[test]
     fn test_blue_damage_reduction_effect() {
         let mut state = State::default();
         state.turn_count = 1;
