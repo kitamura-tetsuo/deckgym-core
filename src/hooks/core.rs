@@ -983,6 +983,35 @@ mod tests {
     }
 
     #[test]
+    fn test_shell_armor_reduces_damage() {
+        let mut state = State::default();
+        let defender = get_card_by_enum(CardId::A1067Cloyster);
+        let played_defender = to_playable_card(&defender, false);
+        let attacker = get_card_by_enum(CardId::A1001Bulbasaur);
+        let played_attacker = to_playable_card(&attacker, false);
+
+        state.in_play_pokemon[0][0] = Some(played_defender);
+        state.in_play_pokemon[1][0] = Some(played_attacker);
+
+        let is_from_active_attack = true;
+        let attack_name = Some("Attack");
+
+        let damage = 50;
+        let modification = modify_damage(
+            &state,
+            (1, 0),
+            (damage, 0, 0),
+            is_from_active_attack,
+            attack_name,
+        );
+
+        assert_eq!(
+            modification, 40,
+            "Shell Armor should reduce damage by exactly 10"
+        );
+    }
+
+    #[test]
     fn test_baby_pokemon_contain_energy() {
         let state = State::default();
         let baby_card = get_card_by_enum(CardId::A4032Magby);
