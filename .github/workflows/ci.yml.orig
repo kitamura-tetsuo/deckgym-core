@@ -31,7 +31,7 @@ jobs:
         run: cargo clippy --features tui -- -D warnings
 
       - name: Run tests
-        run: RUST_MIN_STACK=8388608 cargo test
+        run: cargo test
 
       - name: Build TUI with feature flag
         run: cargo build --bin tui --features tui
