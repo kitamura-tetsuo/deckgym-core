@@ -31,13 +31,13 @@ jobs:
         run: cargo clippy --features tui -- -D warnings
 
       - name: Run tests
-        run: cargo test
+        run: RUST_MIN_STACK=8388608 cargo test
 
       - name: Build TUI with feature flag
         run: cargo build --bin tui --features tui
 
       - name: Run tests
-        run: cargo test --features tui --bin tui
+        run: RUST_MIN_STACK=8388608 cargo test --features tui --bin tui
 
       - name: Run example 1
         run: cargo run simulate example_decks/venusaur-exeggutor.txt example_decks/weezing-arbok.txt --num 1000 -v

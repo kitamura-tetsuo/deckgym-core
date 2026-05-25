@@ -925,3 +925,25 @@ fn test_rampardos_head_smash_self_ko_from_recoil() {
     // The bench Pokemon should have been promoted or there's a promotion pending
     // Since Rampardos was at position 0 and got KO'd, it should be None or promoted
 }
+
+#[test]
+fn test_cloyster_shell_armor() {
+    let game = get_initialized_game(0);
+    let mut state = game.get_state_clone();
+
+    // Attacker
+    state.in_play_pokemon[1][0] = Some(PlayedCard::from_id(CardId::A1053Squirtle));
+
+    // Defender with Ability
+    state.in_play_pokemon[0][0] = Some(PlayedCard::from_id(CardId::A1067Cloyster));
+
+    // Attacking ref: player 1, pokemon 0. Target ref: damage 20, player 0, pokemon 0
+    let attacking_ref = (1, 0);
+    let target_ref = (20, 0, 0);
+
+    let modified_damage =
+        deckgym::hooks::modify_damage(&state, attacking_ref, target_ref, true, Some("Water Gun"));
+
+    // Base damage is 20, reduced by 10 from Ability
+    assert_eq!(modified_damage, 10);
+}
