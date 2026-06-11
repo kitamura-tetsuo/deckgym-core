@@ -26,6 +26,10 @@ pub enum AbilityMechanic {
         condition: StatusCondition,
         target: TargetScope,
     },
+    CoinFlipStatus {
+        condition: StatusCondition,
+        target: TargetScope,
+    },
     EnergyAttachment {
         amount: u32,
         energy_type: Option<EnergyType>,

@@ -132,6 +132,7 @@ fn can_use_ability_by_mechanic(
         AbilityMechanic::StartTurnRandomPokemonToHand { .. } => false,
         AbilityMechanic::PreventFirstAttack => false,
         AbilityMechanic::ElectromagneticWall => false,
+        AbilityMechanic::CoinFlipStatus { .. } => !card.ability_used,
         _ => false,
     }
 }
