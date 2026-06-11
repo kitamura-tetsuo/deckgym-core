@@ -6,7 +6,7 @@ use rand::rngs::StdRng;
 use crate::{
     ability_ids::AbilityId,
     actions::{
-        abilities::AbilityMechanic,
+        abilities::{AbilityMechanic, TargetScope},
         apply_action_helpers::{handle_damage, Mutation, Mutations, Probabilities},
         effect_ability_mechanic_map::ability_mechanic_from_effect,
         mutations::{doutcome, doutcome_from_mutation},
@@ -14,7 +14,7 @@ use crate::{
         Action, SimpleAction,
     },
     hooks::is_ultra_beast,
-    models::EnergyType,
+    models::{EnergyType, StatusCondition},
     State,
 };
 
@@ -152,8 +152,31 @@ fn forecast_ability_by_mechanic(mechanic: &AbilityMechanic) -> (Probabilities, M
         AbilityMechanic::ElectromagneticWall => {
             panic!("ElectromagneticWall is a passive ability")
         }
+        AbilityMechanic::CoinFlipStatus { condition, target } => {
+            coin_flip_status(*condition, target.clone())
+        }
         _ => unreachable!("New variants only used for vectorization: {:?}", mechanic),
     }
+}
+
+fn coin_flip_status(condition: StatusCondition, target: TargetScope) -> (Probabilities, Mutations) {
+    (
+        vec![0.5, 0.5],
+        vec![
+            // Tails - do nothing
+            Box::new(move |_rng, _state, _action| {}),
+            // Heads - apply status
+            Box::new(move |_rng, state, action| {
+                let target_player = match target {
+                    TargetScope::OpponentActive => 1 - action.actor,
+                    _ => unimplemented!("Target scope not implemented for coin_flip_status"),
+                };
+
+                let active = state.get_active_mut(target_player);
+                active.apply_status_condition(condition);
+            }),
+        ],
+    )
 }
 
 fn heal_all_your_pokemon(amount: u32) -> (Probabilities, Mutations) {

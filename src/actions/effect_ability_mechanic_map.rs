@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use crate::actions::abilities::{AbilityMechanic, TargetScope};
-use crate::models::{Card, EnergyType};
+use crate::models::{Card, EnergyType, StatusCondition};
 
 /// Map from ability effect text to its AbilityMechanic.
 pub static EFFECT_ABILITY_MECHANIC_MAP: LazyLock<HashMap<&'static str, AbilityMechanic>> =
@@ -100,7 +100,13 @@ pub static EFFECT_ABILITY_MECHANIC_MAP: LazyLock<HashMap<&'static str, AbilityMe
             AbilityMechanic::DamageOneOpponentPokemon { amount: 20 },
         );
         // map.insert("Once during your turn, you may flip a coin. If heads, switch in 1 of your opponent's Benched Pokémon to the Active Spot.", todo_implementation);
-        // map.insert("Once during your turn, you may flip a coin. If heads, your opponent's Active Pokémon is now Asleep.", todo_implementation);
+        map.insert(
+            "Once during your turn, you may flip a coin. If heads, your opponent's Active Pokémon is now Asleep.",
+            AbilityMechanic::CoinFlipStatus {
+                condition: StatusCondition::Asleep,
+                target: TargetScope::OpponentActive,
+            },
+        );
         // map.insert("Once during your turn, you may flip a coin. If heads, your opponent's Active Pokémon is now Poisoned.", todo_implementation);
         map.insert(
             "Once during your turn, you may heal 10 damage from each of your Pokémon.",
