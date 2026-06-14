@@ -1259,4 +1259,28 @@ mod tests {
             "Aerodactyl should not be able to evolve from Helix Fossil"
         );
     }
+
+    #[test]
+    fn test_reduce_damage_from_attacks() {
+        let mut state = State::default();
+        let attacker = to_playable_card(&get_card_by_enum(CardId::A1001Bulbasaur), false);
+        let defender = to_playable_card(&get_card_by_enum(CardId::A1067Cloyster), false);
+
+        let attacking_player = 1;
+        let defending_player = 0;
+
+        state.in_play_pokemon[attacking_player][0] = Some(attacker.clone());
+        state.in_play_pokemon[defending_player][0] = Some(defender.clone());
+
+        let base_damage = 30;
+        let attacking_ref = (attacking_player, 0);
+        let target_ref = (base_damage, defending_player, 0);
+
+        let modified_damage =
+            modify_damage(&state, attacking_ref, target_ref, true, Some("Attack"));
+
+        // Bulbasaur (Grass) has no specific type advantage against Cloyster (Water, Lightning weakness)
+        // Base damage 30 - 10 from ability ReduceDamageFromAttacks = 20
+        assert_eq!(modified_damage, 20);
+    }
 }
