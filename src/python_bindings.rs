@@ -1,6 +1,6 @@
 use pyo3::exceptions::{PyIOError, PyIndexError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyModule};
+use pyo3::types::PyModule;
 use pyo3::wrap_pyfunction;
 use rand::distributions::{Distribution, WeightedIndex};
 use rand::{RngCore, SeedableRng};
@@ -8,10 +8,9 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 
 use crate::{
-    actions::attacks::Mechanic,
     actions::{
-        get_attack_mechanic, get_enhanced_ability_mechanic, get_simulator_ability_mechanic,
-        trainer_mechanic::TrainerMechanic, Action, SimpleAction, EFFECT_MECHANIC_MAP,
+        get_attack_mechanic, get_enhanced_ability_mechanic, get_simulator_ability_mechanic, Action,
+        SimpleAction, EFFECT_MECHANIC_MAP,
     },
     card_ids::CardId,
     deck::Deck,
@@ -1069,10 +1068,10 @@ fn parse_deck(py: Python, source: &PyObject) -> PyResult<Deck> {
     if let Ok(path) = source.extract::<String>(py) {
         // Try to load from file first
         if std::path::Path::new(&path).exists() {
-            Deck::from_file(&path).map_err(|e| PyIOError::new_err(e))
+            Deck::from_file(&path).map_err(PyIOError::new_err)
         } else {
             // Treat as string content
-            Deck::from_string(&path).map_err(|e| PyValueError::new_err(e))
+            Deck::from_string(&path).map_err(PyValueError::new_err)
         }
     } else if let Ok(card_ids) = source.extract::<Vec<String>>(py) {
         // List of card IDs
@@ -1080,7 +1079,7 @@ fn parse_deck(py: Python, source: &PyObject) -> PyResult<Deck> {
         for id in card_ids {
             deck_content.push_str(&format!("1 {}\n", id));
         }
-        Deck::from_string(&deck_content).map_err(|e| PyValueError::new_err(e))
+        Deck::from_string(&deck_content).map_err(PyValueError::new_err)
     } else {
         Err(PyValueError::new_err(
             "Deck source must be a file path, deck string, or list of card IDs",
@@ -1317,12 +1316,10 @@ impl PyBatchedSimulator {
 
         // Get default decks from cache if not specified
         let cached_paths: Vec<String> = self.deck_cache.keys().cloned().collect();
-        if deck_ids_1.is_none() || deck_ids_2.is_none() {
-            if cached_paths.len() < 2 {
-                return Err(PyValueError::new_err(
-                    "Not enough decks in cache to reset without explicit deck_ids",
-                ));
-            }
+        if (deck_ids_1.is_none() || deck_ids_2.is_none()) && cached_paths.len() < 2 {
+            return Err(PyValueError::new_err(
+                "Not enough decks in cache to reset without explicit deck_ids",
+            ));
         }
 
         for i in 0..self.batch_size {
@@ -1366,7 +1363,7 @@ impl PyBatchedSimulator {
 
         let action_space_size = encoding::get_action_space_size();
         let obs_dim = if !self.games.is_empty() {
-            encoding::observation_length(&self.games[0].state())
+            encoding::observation_length(self.games[0].state())
         } else {
             0
         };
@@ -1644,7 +1641,7 @@ impl PyBatchedSimulator {
                     let mut sampled_action: Option<Action> = None;
                     let mut sampled_log_prob = 0.0;
 
-                    let (actor, legal_actions) = generate_possible_actions(game.state());
+                    let (_actor, legal_actions) = generate_possible_actions(game.state());
                     let mut filtered_probs = Vec::with_capacity(legal_actions.len());
                     let mut filtered_action_ids = Vec::with_capacity(legal_actions.len());
 
@@ -1688,7 +1685,7 @@ impl PyBatchedSimulator {
                     }
 
                     if let Some(action) = sampled_action {
-                        let actor_before = action.actor;
+                        let _actor_before = action.actor;
                         game.apply_action(&action);
                         let done = game.is_game_over();
 
@@ -1831,7 +1828,7 @@ impl PyBatchedSimulator {
             // Fallback or error, assume standard size?
             // Usually games[0] has size
             if !self.games.is_empty() {
-                encoding::observation_length(&self.games[0].state())
+                encoding::observation_length(self.games[0].state())
             } else {
                 0
             }

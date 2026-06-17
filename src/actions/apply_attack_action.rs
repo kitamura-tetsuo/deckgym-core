@@ -2433,6 +2433,22 @@ fn coin_flip_to_block_attack_next_turn(damage: u32) -> (Probabilities, Mutations
     })
 }
 
+fn damage_and_both_multiple_status_attack(
+    damage: u32,
+    statuses: Vec<StatusCondition>,
+) -> (Probabilities, Mutations) {
+    active_damage_effect_doutcome(damage, move |_, state, action| {
+        let active = state.get_active_mut(action.actor);
+        for status in &statuses {
+            active.apply_status_condition(*status);
+        }
+        let opponent_active = state.get_active_mut(1 - action.actor);
+        for status in &statuses {
+            opponent_active.apply_status_condition(*status);
+        }
+    })
+}
+
 #[cfg(test)]
 mod test {
     use rand::{rngs::StdRng, SeedableRng};
@@ -2682,20 +2698,4 @@ mod test {
         // Verify Oricorio did NOT take damage
         assert_eq!(state.get_active(1).remaining_hp, 70);
     }
-}
-
-fn damage_and_both_multiple_status_attack(
-    damage: u32,
-    statuses: Vec<StatusCondition>,
-) -> (Probabilities, Mutations) {
-    active_damage_effect_doutcome(damage, move |_, state, action| {
-        let active = state.get_active_mut(action.actor);
-        for status in &statuses {
-            active.apply_status_condition(*status);
-        }
-        let opponent_active = state.get_active_mut(1 - action.actor);
-        for status in &statuses {
-            opponent_active.apply_status_condition(*status);
-        }
-    })
 }

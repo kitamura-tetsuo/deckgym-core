@@ -187,7 +187,7 @@ mod tests {
         state.in_play_pokemon[player][0] = Some(rotom.clone());
 
         let retreat_cost =
-            get_retreat_cost(&state, &state.in_play_pokemon[player][0].as_ref().unwrap());
+            get_retreat_cost(&state, state.in_play_pokemon[player][0].as_ref().unwrap());
         assert!(
             !retreat_cost.is_empty(),
             "Rotom should have a retreat cost without Arceus"
@@ -198,7 +198,7 @@ mod tests {
         state.in_play_pokemon[player][1] = Some(arceus);
 
         let retreat_cost =
-            get_retreat_cost(&state, &state.in_play_pokemon[player][0].as_ref().unwrap());
+            get_retreat_cost(&state, state.in_play_pokemon[player][0].as_ref().unwrap());
         assert!(
             retreat_cost.is_empty(),
             "Rotom should have 0 retreat cost with Arceus in play"
@@ -209,7 +209,7 @@ mod tests {
         state.in_play_pokemon[player][1] = Some(arceus_ex);
 
         let retreat_cost =
-            get_retreat_cost(&state, &state.in_play_pokemon[player][0].as_ref().unwrap());
+            get_retreat_cost(&state, state.in_play_pokemon[player][0].as_ref().unwrap());
         assert!(
             retreat_cost.is_empty(),
             "Rotom should have 0 retreat cost with Arceus ex in play"
@@ -222,7 +222,7 @@ mod tests {
         state.in_play_pokemon[opponent][0] = Some(arceus);
 
         let retreat_cost =
-            get_retreat_cost(&state, &state.in_play_pokemon[player][0].as_ref().unwrap());
+            get_retreat_cost(&state, state.in_play_pokemon[player][0].as_ref().unwrap());
         assert!(
             !retreat_cost.is_empty(),
             "Rotom should have a retreat cost if Arceus is only on opponent's side"
