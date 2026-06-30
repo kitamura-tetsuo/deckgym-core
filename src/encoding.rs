@@ -778,8 +778,7 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
                 },
             );
             obs.push(
-                if active_effects.contains(&crate::effects::CardEffect::PreventAllDamage)
-                {
+                if active_effects.contains(&crate::effects::CardEffect::PreventAllDamage) {
                     1.0
                 } else {
                     0.0
