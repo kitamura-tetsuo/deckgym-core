@@ -777,6 +777,13 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
                     0.0
                 },
             );
+            obs.push(
+                if active_effects.contains(&crate::effects::CardEffect::PreventAllDamage) {
+                    1.0
+                } else {
+                    0.0
+                },
+            );
         } else {
             // Empty slot
             obs.push(0.0); // HP
@@ -786,7 +793,7 @@ pub fn encode_state(state: &State, player: usize, public_only: bool) -> Vec<f32>
             obs.push(0.0); // played_this_turn
             obs.push(0.0); // ability_used
             obs.push(-1.0); // tool
-            obs.extend(vec![0.0; 4]); // key effects
+            obs.extend(vec![0.0; 5]); // key effects
         }
     };
 
