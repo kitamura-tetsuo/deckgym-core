@@ -11,6 +11,7 @@ pub enum CardEffect {
     CannotUseAttack(String),
     IncreasedDamageForAttack { attack_name: String, amount: u32 },
     PreventAllDamageAndEffects,
+    PreventAllDamage,
     NoWeakness,
     CoinFlipToBlockAttack,
     DelayedDamage { amount: u32 },

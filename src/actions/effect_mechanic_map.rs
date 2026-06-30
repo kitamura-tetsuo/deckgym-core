@@ -511,7 +511,12 @@ pub static EFFECT_MECHANIC_MAP: LazyLock<HashMap<&'static str, Mechanic>> = Lazy
     // map.insert("Flip a coin. If heads, choose 1 of your opponent's Active Pokémon's attacks and use it as this attack.", todo_implementation);
     // map.insert("Flip a coin. If heads, discard a random Energy from your opponent's Active Pokémon.", todo_implementation);
     // map.insert("Flip a coin. If heads, discard a random card from your opponent's hand.", todo_implementation);
-    // map.insert("Flip a coin. If heads, during your opponent's next turn, prevent all damage done to this Pokémon by attacks.", todo_implementation);
+    map.insert("Flip a coin. If heads, during your opponent's next turn, prevent all damage done to this Pokémon by attacks.", Mechanic::DamageAndCardEffect {
+        opponent: false,
+        effect: CardEffect::PreventAllDamage,
+        duration: 1,
+        probability: Some(0.5),
+    });
     map.insert("Flip a coin. If heads, during your opponent's next turn, prevent all damage from—and effects of—attacks done to this Pokémon.", Mechanic::DamageAndCardEffect {
         opponent: false,
         effect: CardEffect::PreventAllDamageAndEffects,
