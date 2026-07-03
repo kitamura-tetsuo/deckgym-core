@@ -133,6 +133,12 @@ pub enum Mechanic {
         duration: u8,
         probability: Option<f32>, // None = 100%, Some(0.5) = coin flip
     },
+    DamageAndStatusAndCardEffect {
+        status: StatusCondition,
+        effect: CardEffect,
+        opponent: bool,
+        duration: u8,
+    },
     SelfDiscardAllEnergy,
     SelfDiscardRandomEnergy,
     AlsoBenchDamage {

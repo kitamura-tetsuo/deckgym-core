@@ -1494,7 +1494,15 @@ pub static EFFECT_MECHANIC_MAP: LazyLock<HashMap<&'static str, Mechanic>> = Lazy
     );
     // map.insert("You may shuffle this Pokémon and all attached cards into your deck.", todo_implementation);
     // map.insert("Your opponent reveals a random card from their hand and shuffles it into their deck. Shuffle this Pokémon into your deck.", todo_implementation);
-    // map.insert("Your opponent's Active Pokémon is now Poisoned. During your opponent's next turn, that Pokémon can't retreat.", todo_implementation);
+    map.insert(
+        "Your opponent's Active Pokémon is now Poisoned. During your opponent's next turn, that Pokémon can't retreat.",
+        Mechanic::DamageAndStatusAndCardEffect {
+            status: StatusCondition::Poisoned,
+            effect: CardEffect::NoRetreat,
+            opponent: true,
+            duration: 1,
+        },
+    );
 
     // New Mechanics from B2a
     // map.insert("1 of your opponent's Pokémon is chosen at random for each [M] Energy attached to this Pokémon. For each time a Pokémon was chosen, do 40 damage to it.", todo_implementation);

@@ -408,6 +408,18 @@ fn forecast_effect_attack_by_mechanic(
             *duration,
             *probability,
         ),
+        Mechanic::DamageAndStatusAndCardEffect {
+            status,
+            effect,
+            opponent,
+            duration,
+        } => damage_and_status_and_card_effect_attack(
+            attack.fixed_damage,
+            *status,
+            effect.clone(),
+            *opponent,
+            *duration,
+        ),
         Mechanic::SelfDiscardAllEnergy => damage_and_discard_all_energy(attack.fixed_damage),
         Mechanic::SelfDiscardRandomEnergy => damage_and_discard_random_energy(attack.fixed_damage),
         Mechanic::AlsoBenchDamage {
@@ -1524,6 +1536,25 @@ fn damage_and_turn_effect_attack(
     let effect_clone = effect.clone();
     active_damage_effect_doutcome(damage, move |_, state, _| {
         state.add_turn_effect(effect_clone.clone(), effect_duration);
+    })
+}
+
+fn damage_and_status_and_card_effect_attack(
+    damage: u32,
+    status: StatusCondition,
+    effect: CardEffect,
+    opponent: bool,
+    effect_duration: u8,
+) -> (Probabilities, Mutations) {
+    active_damage_effect_doutcome(damage, move |_, state, action| {
+        let player = if opponent {
+            (action.actor + 1) % 2
+        } else {
+            action.actor
+        };
+        let active = state.get_active_mut(player);
+        active.apply_status_condition(status);
+        active.add_effect(effect.clone(), effect_duration);
     })
 }
 
