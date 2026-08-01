@@ -724,6 +724,7 @@ fn calculate_type_boost_bonus(
                     debug!("Fighting Coach (Lucario): Increasing damage by 20");
                     bonus += 20;
                 }
+                AbilityId::A2092LucarioFightingCoach => {}
                 // Aegislash's Cursed Metal: +30 damage to Psychic and Metal-type attacks
                 AbilityId::B1172AegislashCursedMetal
                     if attacker_energy_type == EnergyType::Psychic
@@ -732,6 +733,7 @@ fn calculate_type_boost_bonus(
                     debug!("Cursed Metal (Aegislash): Increasing damage by 30");
                     bonus += 30;
                 }
+                AbilityId::B1172AegislashCursedMetal => {}
                 _ => {}
             }
         }
