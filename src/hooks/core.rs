@@ -1103,6 +1103,27 @@ mod tests {
     }
 
     #[test]
+    fn test_cloyster_reduced_damage() {
+        // Arrange
+        let mut state = State::default();
+        let attacker = get_card_by_enum(CardId::A1035Charizard);
+        let played_attacker = to_playable_card(&attacker, false);
+        state.in_play_pokemon[0][0] = Some(played_attacker);
+        let defender = get_card_by_enum(CardId::A1067Cloyster);
+        let played_defender = to_playable_card(&defender, false);
+        state.in_play_pokemon[1][0] = Some(played_defender);
+
+        // Act
+        let damage_with_shell_armor = modify_damage(&state, (0, 0), (120, 1, 0), true, None);
+
+        // Assert
+        assert_eq!(
+            damage_with_shell_armor, 110,
+            "Cloyster's Shell Armor should reduce damage by exactly 10"
+        );
+    }
+
+    #[test]
     fn test_normal_evolution_works() {
         // Ivysaur evolves from Bulbasaur
         let ivysaur = get_card_by_enum(CardId::A1002Ivysaur);
