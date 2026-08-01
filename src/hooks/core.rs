@@ -724,6 +724,7 @@ fn calculate_type_boost_bonus(
                     debug!("Fighting Coach (Lucario): Increasing damage by 20");
                     bonus += 20;
                 }
+                AbilityId::A2092LucarioFightingCoach => {}
                 // Aegislash's Cursed Metal: +30 damage to Psychic and Metal-type attacks
                 AbilityId::B1172AegislashCursedMetal
                     if attacker_energy_type == EnergyType::Psychic
@@ -732,6 +733,7 @@ fn calculate_type_boost_bonus(
                     debug!("Cursed Metal (Aegislash): Increasing damage by 30");
                     bonus += 30;
                 }
+                AbilityId::B1172AegislashCursedMetal => {}
                 _ => {}
             }
         }
@@ -979,6 +981,35 @@ mod tests {
         pokemon.attached_energy = vec![EnergyType::Water, EnergyType::Water, EnergyType::Fire];
         let cost = vec![EnergyType::Colorless, EnergyType::Colorless];
         assert!(contains_energy(&pokemon, &cost, &state, 0));
+    }
+
+    #[test]
+    fn test_shell_armor_reduces_damage() {
+        let mut state = State::default();
+        let defender = get_card_by_enum(CardId::A1067Cloyster);
+        let played_defender = to_playable_card(&defender, false);
+        let attacker = get_card_by_enum(CardId::A1001Bulbasaur);
+        let played_attacker = to_playable_card(&attacker, false);
+
+        state.in_play_pokemon[0][0] = Some(played_defender);
+        state.in_play_pokemon[1][0] = Some(played_attacker);
+
+        let is_from_active_attack = true;
+        let attack_name = Some("Attack");
+
+        let damage = 50;
+        let modification = modify_damage(
+            &state,
+            (1, 0),
+            (damage, 0, 0),
+            is_from_active_attack,
+            attack_name,
+        );
+
+        assert_eq!(
+            modification, 40,
+            "Shell Armor should reduce damage by exactly 10"
+        );
     }
 
     #[test]
