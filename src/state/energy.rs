@@ -71,13 +71,20 @@ impl State {
         if amount == 0 {
             return false;
         }
+
+        // Add energies first, so we don't have to worry about the pokemon getting knocked out and adding energies to nothing.
         let pokemon = self.in_play_pokemon[actor][in_play_idx]
             .as_mut()
             .expect("Pokemon should be there if attaching energy to it");
         pokemon
             .attached_energy
             .extend(std::iter::repeat_n(energy, amount as usize));
+
         for _ in 0..amount {
+            // Check if the Pokémon is still there before running on_attach_energy
+            if self.in_play_pokemon[actor][in_play_idx].is_none() {
+                break;
+            }
             self.on_attach_energy(actor, in_play_idx, energy, from_zone, is_turn_energy);
         }
         true
