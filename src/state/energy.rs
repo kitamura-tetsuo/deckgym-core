@@ -71,13 +71,18 @@ impl State {
         if amount == 0 {
             return false;
         }
-        let pokemon = self.in_play_pokemon[actor][in_play_idx]
-            .as_mut()
-            .expect("Pokemon should be there if attaching energy to it");
+
+        let Some(pokemon) = self.in_play_pokemon[actor][in_play_idx].as_mut() else {
+            return false;
+        };
+
         pokemon
             .attached_energy
             .extend(std::iter::repeat_n(energy, amount as usize));
         for _ in 0..amount {
+            if self.in_play_pokemon[actor][in_play_idx].is_none() {
+                break;
+            }
             self.on_attach_energy(actor, in_play_idx, energy, from_zone, is_turn_energy);
         }
         true
@@ -92,10 +97,11 @@ impl State {
         is_turn_energy: bool,
     ) {
         let ability_id = {
-            let pokemon = self.in_play_pokemon[actor][in_play_idx]
-                .as_ref()
-                .expect("Pokemon should be there if attaching energy to it");
-            AbilityId::from_pokemon_id(&pokemon.card.get_id()[..])
+            if let Some(pokemon) = self.in_play_pokemon[actor][in_play_idx].as_ref() {
+                AbilityId::from_pokemon_id(&pokemon.card.get_id()[..])
+            } else {
+                None
+            }
         };
 
         if from_zone {
@@ -152,10 +158,9 @@ impl State {
                 && from_zone
             {
                 // Whenever you attach a Psychic Energy from your Energy Zone to this Pokémon, heal 20 damage from this Pokémon.
-                let pokemon = self.in_play_pokemon[actor][in_play_idx]
-                    .as_mut()
-                    .expect("Pokemon should be there if attaching energy to it");
-                pokemon.heal(20);
+                if let Some(pokemon) = self.in_play_pokemon[actor][in_play_idx].as_mut() {
+                    pokemon.heal(20);
+                }
             }
         }
     }
